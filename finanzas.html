@@ -250,6 +250,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .deuda-ring-summary-stats{display:flex;flex-direction:column;gap:.6rem;flex:1}
 .deuda-ring-stat{display:flex;justify-content:space-between;font-size:.875rem}
 
+/* ---- TC FILTER BAR ---- */
+.filter-bar{display:flex;flex-wrap:wrap;gap:.6rem;padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface2);align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:.3rem;min-width:140px;flex:1}
+.filter-group label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:500}
+.filter-group select,.filter-group input{padding:.45rem .7rem;font-size:.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif}
+.filter-group select:focus,.filter-group input:focus{outline:none;border-color:var(--accent)}
+.filter-clear{padding:.45rem .875rem;font-size:.78rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;align-self:flex-end;transition:all .15s}
+.filter-clear:hover{background:var(--danger2);color:var(--danger);border-color:var(--danger)}
+.filter-count{font-size:.75rem;color:var(--text3);align-self:flex-end;white-space:nowrap;padding-bottom:.1rem}
+
 /* ---- LOGIN SCREEN ---- */
 .login-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:2.5rem;width:100%;max-width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.08)}
@@ -450,7 +460,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <option value="8">Septiembre 2026</option><option value="9">Octubre 2026</option>
     <option value="10">Noviembre 2026</option><option value="11">Diciembre 2026</option>
   </select>
-  <span style="font-size:.78rem;color:var(--text3);margin-left:auto">Solo para visualización — la carga es independiente</span>
+  <div style="display:flex;align-items:center;gap:.5rem;margin-left:auto;background:var(--warn2);border:1px solid var(--warn);border-radius:var(--radius-sm);padding:.35rem .75rem">
+    <span style="font-size:.75rem;color:var(--warn);font-weight:500">💱 TC USD/ARS:</span>
+    <span style="font-size:.75rem;color:var(--text3)">$</span>
+    <input type="number" id="tc-global" placeholder="0"
+      value="" min="0" step="1"
+      onchange="saveTCGlobal(this.value)"
+      style="width:90px;border:none;background:transparent;font-size:.875rem;font-weight:600;color:var(--warn);font-family:'DM Sans',sans-serif;text-align:right;outline:none;padding:0"
+      title="Tipo de cambio USD → ARS usado en todos los consumos en dólares">
+    <span style="font-size:.72rem;color:var(--text3)">por dólar</span>
+  </div>
 </div>
 
 <!-- ============ RESUMEN ============ -->
@@ -757,12 +776,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <p class="page-sub">Registrá consumos y seguí cuotas mes a mes</p>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="switchTCTab('tab-tc-nuevo')">Nuevo consumo</button>
-    <button class="tab" onclick="switchTCTab('tab-tc-lista')">Todos los consumos</button>
+    <button class="tab" onclick="switchTCTab('tab-tc-nuevo')">Nuevo consumo</button>
+    <button class="tab active" onclick="switchTCTab('tab-tc-lista')">Todos los consumos</button>
     <button class="tab" onclick="switchTCTab('tab-tc-resumen')">Resumen por tarjeta</button>
+    <button class="tab" onclick="switchTCTab('tab-tc-concil')">🔍 Conciliar</button>
   </div>
 
-  <div id="tab-tc-nuevo" class="tab-content active">
+  <div id="tab-tc-nuevo" class="tab-content">
     <div class="card">
       <div class="card-header"><span class="card-title">Agregar consumo</span></div>
       <div class="form-panel" style="display:block;background:var(--surface)">
@@ -867,13 +887,63 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     </div>
   </div>
 
-  <div id="tab-tc-lista" class="tab-content">
+  <div id="tab-tc-lista" class="tab-content active">
     <div class="card">
-      <div class="card-header"><span class="card-title">Todos los consumos</span><span class="card-count" id="tc-count-badge">0</span></div>
+      <div class="card-header">
+        <span class="card-title">Todos los consumos</span>
+        <span class="card-count" id="tc-count-badge">0</span>
+      </div>
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label>Banco / Tarjeta</label>
+          <select id="f-banco" onchange="applyTCFilters()"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Centro de costo</label>
+          <select id="f-centro" onchange="applyTCFilters()"><option value="">Todos</option></select>
+        </div>
+        <div class="filter-group">
+          <label>Categoría</label>
+          <select id="f-cat" onchange="applyTCFilters()"><option value="">Todas</option></select>
+        </div>
+        <div class="filter-group" style="min-width:110px;max-width:150px">
+          <label>Desde mes</label>
+          <select id="f-desde" onchange="applyTCFilters()">
+            <option value="">Cualquiera</option>
+            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+          </select>
+        </div>
+        <div class="filter-group" style="min-width:110px;max-width:150px">
+          <label>Hasta mes</label>
+          <select id="f-hasta" onchange="applyTCFilters()">
+            <option value="">Cualquiera</option>
+            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+          </select>
+        </div>
+        <div class="filter-group" style="min-width:160px">
+          <label>Buscar descripción</label>
+          <input type="text" id="f-desc" placeholder="Ej: Netflix, Carrefour..." oninput="applyTCFilters()">
+        </div>
+        <button class="filter-clear" onclick="clearTCFilters()">✕ Limpiar</button>
+        <span class="filter-count" id="f-count"></span>
+      </div>
       <div class="cuota-row cuota-header">
-        <span>Descripción</span><span>Banco</span><span>Categoría</span><span style="text-align:right">Cuota $</span><span style="text-align:right">Total</span><span></span>
+        <span>Descripción</span><span>Banco</span><span>Categoría</span>
+        <span style="text-align:right">Cuota $</span><span style="text-align:right">Total</span><span></span>
       </div>
       <div id="tc-list"></div>
+      <div id="f-totals" style="display:none;padding:.875rem 1.5rem;border-top:2px solid var(--border);flex-wrap:wrap;gap:2rem;font-size:.85rem;background:var(--surface2)">
+        <span>Filtrados: <strong id="f-tot-count">0</strong></span>
+        <span>Suma cuotas: <strong id="f-tot-cuota" style="color:var(--accent)">$0</strong></span>
+        <span>Total comprometido: <strong id="f-tot-total" style="color:var(--danger)">$0</strong></span>
+      </div>
     </div>
   </div>
 
@@ -1511,6 +1581,48 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <div id="deu-proy-bars" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem"></div>
     </div>
   </div>
+  
+
+</div>
+
+<div id="tab-tc-concil" class="tab-content" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🔍 Conciliar tarjeta</span>
+    </div>
+    <div style="padding:1rem 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;border-bottom:1px solid var(--border);background:var(--surface2);align-items:flex-end">
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Tarjeta</div>
+        <select id="cc-banco" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;min-width:180px"></select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Mes</div>
+        <select id="cc-mes" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem">
+          <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+          <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+          <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+          <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Total extracto ($)</div>
+        <input type="number" id="cc-extracto" placeholder="0" oninput="calcConcilDiff()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;width:140px">
+      </div>
+      <button onclick="concilMarcarTodos(true)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">✅ Marcar todos</button>
+      <button onclick="concilMarcarTodos(false)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">☐ Desmarcar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:36px 1fr 120px 80px 100px 80px;gap:.5rem;padding:.6rem 1.5rem;background:var(--surface2);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">
+      <span></span><span>Descripción</span><span style="text-align:right">Cuota $</span><span style="text-align:center">N° cuota</span><span style="text-align:right">Mes</span><span>Centro</span>
+    </div>
+    <div id="cc-rows"></div>
+    <div style="padding:.875rem 1.5rem;border-top:2px solid var(--border);background:var(--surface2);display:flex;gap:2rem;flex-wrap:wrap;font-size:.85rem;align-items:center">
+      <span>Tildados: <strong id="cc-ok">0</strong>/<strong id="cc-tot">0</strong></span>
+      <span>Suma: <strong id="cc-suma" style="color:var(--accent)">$0</strong></span>
+      <span>Extracto: <strong id="cc-ext-disp">$0</strong></span>
+      <span>Diferencia: <strong id="cc-diff">$0</strong></span>
+      <strong id="cc-status"></strong>
+    </div>
+  </div>
 </div>
 
 <!-- ============ GRÁFICOS ============ -->
@@ -1721,9 +1833,9 @@ let charts={};
 // ================================================
 // COMPUTED
 // ================================================
-function getTCMonth(m){return consumos.reduce((s,c)=>{const e=c.primerMes+c.cuotas-1;return m>=c.primerMes&&m<=e?s+parseFloat(c.monto||0):s;},0);}
-function getTCMonthByBanco(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.banco]=(map[c.banco]||0)+parseFloat(c.monto||0);});return map;}
-function getTCMonthByCat(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.categoria]=(map[c.categoria]||0)+parseFloat(c.monto||0);});return map;}
+function getTCMonth(m){return consumos.reduce((s,c)=>{const e=c.primerMes+c.cuotas-1;return m>=c.primerMes&&m<=e?s+toARS(c.monto,c.moneda):s;},0);}
+function getTCMonthByBanco(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.banco]=(map[c.banco]||0)+toARS(c.monto,c.moneda);});return map;}
+function getTCMonthByCat(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.categoria]=(map[c.categoria]||0)+toARS(c.monto,c.moneda);});return map;}
 // NEW: ingresos/gastos filtered by month via fecha field
 function getIngMonth(m){return ingresos.filter(i=>dateToMonth(i.fecha)===m).reduce((s,i)=>s+parseFloat(i.monto||0),0);}
 // Exclude TC-linked rows from manual gastos total (they're already counted in getTCMonth)
@@ -1757,7 +1869,7 @@ function renderPage(id){
   if(id==='resumen')renderResumen();
   if(id==='presupuesto'){renderOverview();renderIngresos();renderGastosPresup();renderAhorrosTab();}
   if(id==='obligaciones')renderObligaciones();
-  if(id==='tarjetas'){renderTCList();rebuildAllSelects();}
+  if(id==='tarjetas'){rebuildAllSelects();switchTCTab('tab-tc-lista');}
   if(id==='graficos')renderGraficos();
   if(id==='regalos')renderRegalos();
 }
@@ -1771,11 +1883,21 @@ function switchPresupTab(tabId){
   if(tabId==='tab-p-ahorros')renderAhorrosTab();
 }
 function switchTCTab(tabId){
-  const ids=['tab-tc-nuevo','tab-tc-lista','tab-tc-resumen'];
-  ids.forEach(id=>{const el=document.getElementById(id);if(el){el.classList.toggle('active',id===tabId);el.style.display=id===tabId?'block':'none';}});
+  const ids=['tab-tc-nuevo','tab-tc-lista','tab-tc-resumen','tab-tc-concil'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.classList.toggle('active',id===tabId);
+    el.style.display=id===tabId?'block':'none';
+  });
   document.querySelectorAll('#page-tarjetas .tabs .tab').forEach((b,i)=>b.classList.toggle('active',ids[i]===tabId));
-  if(tabId==='tab-tc-lista')renderTCList();
-  if(tabId==='tab-tc-resumen')renderTCResumen();
+  if(tabId==='tab-tc-lista'){
+    buildTCFilterOptions();
+    applyTCFilters();
+  }
+  if(tabId==='tab-tc-resumen') renderTCResumen();
+  if(tabId==='tab-tc-concil') initConcilTab();
+
 }
 
 // ================================================
@@ -2407,20 +2529,237 @@ function renderObligaciones(){
 // ================================================
 function toggleUSD(){document.getElementById('tc-usd-wrap').style.display=document.getElementById('tc-moneda').value==='USD'?'flex':'none';calcTCTotal();}
 function calcTCTotal(){const m=parseFloat(document.getElementById('tc-monto').value)||0,c=parseInt(document.getElementById('tc-cuotas').value)||1;document.getElementById('tc-total-display').textContent=m*c>0?fmt(m*c):'—';}
-function renderTCList(){
-  document.getElementById('tc-count-badge').textContent=consumos.length;
+
+
+// ======= CONCILIAR =======
+var _concilChecked = {}; // key: banco__mes__consumoId -> bool
+
+function initConcilTab(){
+  // populate banco select
+  var sel = document.getElementById('cc-banco');
+  if(!sel) return;
+  var bcos = [];
+  consumos.forEach(function(c){ if(bcos.indexOf(c.banco)<0) bcos.push(c.banco); });
+  bcos.sort();
+  sel.innerHTML = bcos.map(function(b){ return '<option value="'+b+'">'+b+'</option>'; }).join('');
+  // set current month
+  var mes = document.getElementById('cc-mes');
+  if(mes) mes.value = String(currentMonth);
+  loadConcilRows();
+}
+
+function loadConcilRows(){
+  var banco = document.getElementById('cc-banco').value;
+  var mes = parseInt(document.getElementById('cc-mes').value);
+  var rows = document.getElementById('cc-rows');
+  if(!rows) return;
+
+  var relevant = [];
+  consumos.forEach(function(c){
+    if(c.banco !== banco) return;
+    var pm = parseInt(c.primerMes) || 0;
+    var cu = parseInt(c.cuotas) || 1;
+    if(mes >= pm && mes <= pm+cu-1) relevant.push(c);
+  });
+
+  if(!relevant.length){
+    rows.innerHTML = '<p style="padding:1.5rem;text-align:center;color:#a8a49e">Sin consumos de <strong>'+banco+'</strong> en <strong>'+MONTHS[mes]+'</strong></p>';
+    calcConcilDiff();
+    return;
+  }
+
+  var html2 = '';
+  relevant.forEach(function(c){
+    var pm = parseInt(c.primerMes)||0;
+    var cu = parseInt(c.cuotas)||1;
+    var cuotaN = mes - pm + 1;
+    var key = banco+'__'+mes+'__'+c.id;
+    var checked = !!_concilChecked[key];
+    var tc = getTCGlobal ? getTCGlobal() : 1;
+    var monto = (c.moneda==='USD') ? parseFloat(c.monto||0)*tc : parseFloat(c.monto||0);
+    var usd = c.moneda==='USD' ? ' <span style="background:#fff3cd;color:#856404;border-radius:8px;padding:.1rem .35rem;font-size:.65rem">u$s'+c.monto+'</span>' : '';
+    var bg = checked ? 'background:#edfaf3;' : '';
+    html2 += '<div style="display:grid;grid-template-columns:36px 1fr 120px 80px 100px 80px;gap:.5rem;padding:.75rem 1.5rem;border-bottom:1px solid #e5e2dc;align-items:center;font-size:.875rem;'+bg+'" id="ccrow-'+c.id+'">';
+    html2 += '<input type="checkbox" data-id="'+c.id+'" data-banco="'+banco+'" data-mes="'+mes+'" '+(checked?'checked':'')+' onchange="concilToggleThis(this)" style="width:18px;height:18px;cursor:pointer;accent-color:#7c6fcd">';
+    html2 += '<div style="font-weight:500">'+( c.desc||'—')+usd+'<div style="font-size:.72rem;color:#a8a49e">'+c.categoria+(c.comentario?' · '+c.comentario:'')+'</div></div>';
+    html2 += '<div style="text-align:right;font-weight:500">'+fmt(monto)+'</div>';
+    html2 += '<div style="text-align:center;font-size:.8rem;color:#6b6860">'+cuotaN+' de '+cu+'</div>';
+    html2 += '<div style="text-align:right;font-size:.8rem;color:#6b6860">'+MONTHS[mes]+'</div>';
+    html2 += '<div style="font-size:.75rem;color:#6b6860">'+(c.centro||'')+'</div>';
+    html2 += '</div>';
+  });
+  rows.innerHTML = html2;
+  document.getElementById('cc-tot').textContent = relevant.length;
+  calcConcilDiff();
+}
+
+function concilToggleThis(cb){
+  var banco = cb.dataset.banco;
+  var mes = parseInt(cb.dataset.mes);
+  var id = cb.dataset.id;
+  var checked = cb.checked;
+  var key = banco+'__'+mes+'__'+id;
+  _concilChecked[key] = checked;
+  var row = document.getElementById('ccrow-'+id);
+  if(row) row.style.background = checked ? '#edfaf3' : '';
+  calcConcilDiff();
+}
+
+function calcConcilDiff(){
+  var banco = document.getElementById('cc-banco').value;
+  var mes = parseInt(document.getElementById('cc-mes').value);
+  var extVal = parseFloat(document.getElementById('cc-extracto').value)||0;
+  var tc = getTCGlobal ? getTCGlobal() : 1;
+
+  var suma = 0; var okCount = 0;
+  consumos.forEach(function(c){
+    if(c.banco !== banco) return;
+    var pm = parseInt(c.primerMes)||0;
+    var cu = parseInt(c.cuotas)||1;
+    if(mes < pm || mes > pm+cu-1) return;
+    var key = banco+'__'+mes+'__'+c.id;
+    if(_concilChecked[key]){
+      suma += (c.moneda==='USD') ? parseFloat(c.monto||0)*tc : parseFloat(c.monto||0);
+      okCount++;
+    }
+  });
+
+  var diff = extVal - suma;
+  var ok = extVal > 0 && Math.abs(diff) < 1;
+
+  document.getElementById('cc-ok').textContent = okCount;
+  document.getElementById('cc-suma').textContent = fmt(suma);
+  document.getElementById('cc-ext-disp').textContent = fmt(extVal);
+  var diffEl = document.getElementById('cc-diff');
+  diffEl.textContent = (diff>=0?'+':'')+fmt(diff);
+  diffEl.style.color = ok ? '#2d7a4f' : diff>0 ? '#b56a1e' : '#c94040';
+  var st = document.getElementById('cc-status');
+  if(!extVal) st.innerHTML='';
+  else if(ok) st.innerHTML='<span style="color:#2d7a4f">✅ Conciliado</span>';
+  else if(diff>0) st.innerHTML='<span style="color:#b56a1e">⚠️ Faltan '+fmt(diff)+'</span>';
+  else st.innerHTML='<span style="color:#c94040">⚠️ Sobrante '+fmt(Math.abs(diff))+'</span>';
+}
+
+function concilMarcarTodos(val){
+  var banco = document.getElementById('cc-banco').value;
+  var mes = parseInt(document.getElementById('cc-mes').value);
+  consumos.forEach(function(c){
+    if(c.banco !== banco) return;
+    var pm = parseInt(c.primerMes)||0;
+    var cu = parseInt(c.cuotas)||1;
+    if(mes < pm || mes > pm+cu-1) return;
+    var key = banco+'__'+mes+'__'+c.id;
+    _concilChecked[key] = val;
+    var cb = document.getElementById('ccrow-'+c.id) ? document.getElementById('ccrow-'+c.id).querySelector('input') : null;
+    if(cb) cb.checked = val;
+    var row = document.getElementById('ccrow-'+c.id);
+    if(row) row.style.background = val ? '#edfaf3' : '';
+  });
+  calcConcilDiff();
+}
+// ======= FIN CONCILIAR =======
+
+function buildTCFilterOptions(){
+  // Populate filter dropdowns dynamically from consumos
+  const bancosSet=[...new Set(consumos.map(c=>c.banco))].sort();
+  const centrosSet=[...new Set(consumos.map(c=>c.centro))].sort();
+  const catsSet=[...new Set(consumos.map(c=>c.categoria))].sort();
+  const fill=(selId,arr)=>{
+    const s=document.getElementById(selId); if(!s)return;
+    const cur=s.value;
+    s.innerHTML='<option value="">Todos</option>'+arr.map(v=>`<option value="${v}">${v}</option>`).join('');
+    if(arr.includes(cur))s.value=cur;
+  };
+  fill('f-banco',bancosSet);
+  fill('f-centro',centrosSet);
+  fill('f-cat',catsSet);
+  // fix "Todas" label for cat
+  const fc=document.getElementById('f-cat');
+  if(fc)fc.querySelector('option').textContent='Todas';
+}
+
+function getFilteredConsumos(){
+  const banco=document.getElementById('f-banco')?.value||'';
+  const centro=document.getElementById('f-centro')?.value||'';
+  const cat=document.getElementById('f-cat')?.value||'';
+  const desde=document.getElementById('f-desde')?.value;
+  const hasta=document.getElementById('f-hasta')?.value;
+  const desc=(document.getElementById('f-desc')?.value||'').toLowerCase().trim();
+  const desdeInt=desde!==''&&desde!==undefined&&desde!==null?parseInt(desde):null;
+  const hastaInt=hasta!==''&&hasta!==undefined&&hasta!==null?parseInt(hasta):null;
+  return consumos.filter(c=>{
+    if(banco&&c.banco!==banco)return false;
+    if(centro&&c.centro!==centro)return false;
+    if(cat&&c.categoria!==cat)return false;
+    if(desdeInt!==null&&c.primerMes<desdeInt)return false;
+    if(hastaInt!==null&&c.primerMes>hastaInt)return false;
+    if(desc&&!(c.desc||'').toLowerCase().includes(desc)&&!(c.categoria||'').toLowerCase().includes(desc))return false;
+    return true;
+  });
+}
+
+function applyTCFilters(){
   const list=document.getElementById('tc-list');
-  if(!consumos.length){list.innerHTML='<p style="padding:1.5rem;color:var(--text3);text-align:center">Sin consumos todavía. Agregá el primero.</p>';return;}
-  list.innerHTML=consumos.map(c=>`
-    <div class="cuota-row">
-      <div><div class="fw-500">${c.desc||'—'}</div><div style="font-size:.72rem;color:var(--text3)">${c.centro}${c.comentario?' · '+c.comentario:''}</div></div>
+  if(!list) return;
+
+  // If filter elements don't exist in DOM (tab hidden), render all consumos
+  const filterExists=!!document.getElementById('f-banco');
+  const filtered=filterExists?getFilteredConsumos():consumos;
+  const total=filtered.length;
+
+  // update badge
+  const badge=document.getElementById('tc-count-badge');
+  if(badge) badge.textContent=filterExists?(total+'/'+consumos.length):consumos.length;
+
+  if(filterExists){
+    const fcnt=document.getElementById('f-count');
+    if(fcnt) fcnt.textContent=total===consumos.length?'':'Mostrando '+total+' de '+consumos.length;
+    const totBar=document.getElementById('f-totals');
+    if(totBar){
+      const totCuota=filtered.reduce((s,c)=>s+parseFloat(c.monto||0),0);
+      const totTotal=filtered.reduce((s,c)=>s+parseFloat(c.monto||0)*c.cuotas,0);
+      totBar.style.display=total<consumos.length?'flex':'none';
+      document.getElementById('f-tot-count').textContent=total;
+      document.getElementById('f-tot-cuota').textContent=fmt(totCuota);
+      document.getElementById('f-tot-total').textContent=fmt(totTotal);
+    }
+  }
+
+  if(!consumos.length){
+    list.innerHTML='<p style="padding:1.5rem;color:var(--text3);text-align:center">Sin consumos todavía. Importá tu Excel o agregá desde "Nuevo consumo".</p>';
+    return;
+  }
+  if(!filtered.length){
+    list.innerHTML='<p style="padding:1.5rem;color:var(--text3);text-align:center">Sin resultados. <button onclick="clearTCFilters()" style="color:var(--accent);background:none;border:none;cursor:pointer;font-family:inherit">Limpiar filtros</button></p>';
+    return;
+  }
+
+  list.innerHTML=filtered.map(c=>{
+    const isUSD=c.moneda==='USD';
+    const montoARS=toARS(c.monto,c.moneda);
+    const totalARS=montoARS*c.cuotas;
+    const usdBadge=isUSD?`<span style="background:#fff3cd;color:#856404;border-radius:10px;padding:.1rem .4rem;font-size:.65rem;font-weight:600;margin-left:.3rem">USD u$s${c.monto}</span>`:'';
+    return`<div class="cuota-row">
+      <div><div class="fw-500">${c.desc||'—'}${usdBadge}</div><div style="font-size:.72rem;color:var(--text3)">${c.centro}${c.comentario?' · '+c.comentario:''}</div></div>
       <div><span class="badge badge-purple" style="font-size:.65rem">${c.banco}</span></div>
       <div style="font-size:.78rem;color:var(--text2)">${c.categoria}</div>
-      <div style="text-align:right">${fmt(c.monto)}<div style="font-size:.7rem;color:var(--text3)">${c.cuotas}x · ${MONTHS[c.primerMes]}</div></div>
-      <div style="text-align:right;font-weight:500">${fmt(c.monto*c.cuotas)}</div>
+      <div style="text-align:right">${fmt(montoARS)}${isUSD?`<div style="font-size:.68rem;color:var(--warn)">u$s${c.monto} × $${getTCGlobal().toLocaleString('es-AR')}</div>`:''}<div style="font-size:.7rem;color:var(--text3)">${c.cuotas}x · ${MONTHS[c.primerMes]}</div></div>
+      <div style="text-align:right;font-weight:500">${fmt(totalARS)}</div>
       <div><button class="del-btn" onclick="deleteConsumo('${c.id}')">✕</button></div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function clearTCFilters(){
+  ['f-banco','f-centro','f-cat','f-desde','f-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const fd=document.getElementById('f-desc');if(fd)fd.value='';
+  applyTCFilters();
+}
+
+function renderTCList(){
+  // Build filter options only if filter bar is visible
+  if(document.getElementById('f-banco')) buildTCFilterOptions();
+  applyTCFilters();
 }
 function renderTCResumen(){
   const m=currentMonth;
@@ -4703,6 +5042,29 @@ function switchImportTab(tabId){
 // INIT
 // ================================================
 // ================================================
+// TIPO DE CAMBIO GLOBAL
+// ================================================
+function getTCGlobal(){
+  const v=parseFloat(document.getElementById('tc-global')?.value)||0;
+  return v>0?v:1;
+}
+function saveTCGlobal(val){
+  localStorage.setItem('tcGlobal', parseFloat(val)||0);
+  // Refresh any visible section
+  const active=document.querySelector('.nav-btn.active');
+  if(active){
+    const m=active.getAttribute('onclick')?.match(/'([^']+)'/);
+    if(m) renderPage(m[1]);
+  }
+  toast('💱 TC actualizado: $'+Number(parseFloat(val)||0).toLocaleString('es-AR')+' por USD');
+}
+// Convert amount to ARS: if moneda=USD multiply by TC, else return as-is
+function toARS(monto, moneda){
+  if((moneda||'ARS')==='USD') return parseFloat(monto||0)*getTCGlobal();
+  return parseFloat(monto||0);
+}
+
+// ================================================
 // LOGIN
 // ================================================
 // Credenciales — cambiá estos valores
@@ -4743,6 +5105,12 @@ function checkAuth(){
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDepModal(); });
 document.getElementById('globalMonth').value=currentMonth;
+
+// Load saved TC global
+(function(){
+  const saved=localStorage.getItem('tcGlobal');
+  if(saved) document.getElementById('tc-global').value=saved;
+})();
 document.getElementById('tc-fecha').valueAsDate=new Date();
 document.getElementById('tc-1cuota').value=currentMonth;
 rebuildAllSelects();
