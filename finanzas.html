@@ -4098,19 +4098,19 @@ function renderC3(){
       </div>
       <!-- Resumen mes a mes -->
       <div style="overflow-x:auto;border-top:1px solid var(--border)">
-        <table style="width:100%;border-collapse:collapse;min-width:860px">
+        <table style="width:100%;border-collapse:collapse;min-width:1100px">
           <thead>
             <tr>
               <td style="padding:.5rem 1rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);background:var(--surface2);width:80px">Mes</td>
-              ${MONTHS.map((m,i)=>`<td style="padding:.5rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);background:${i===currentMonth?'var(--accent2)':'var(--surface2)'};text-align:center;border-left:1px solid var(--border);font-weight:${i===currentMonth?'600':'400'}">${m.slice(0,3)}</td>`).join('')}
+              ${MONTHS.map((m,i)=>`<td style="padding:.4rem .35rem;font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);background:${i===currentMonth?'var(--accent2)':'var(--surface2)'};text-align:center;border-left:1px solid var(--border);font-weight:${i===currentMonth?'600':'400'};min-width:72px">${m.slice(0,3)}</td>`).join('')}
               <td style="padding:.5rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);background:var(--surface2);text-align:center;border-left:2px solid var(--border)">Total</td>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td style="padding:.5rem 1rem;font-size:.72rem;color:var(--text3)">Cuotas</td>
-              ${MONTHS.map((_,m)=>{const v=getC3MontoMes(p,m);return`<td style="padding:.5rem .5rem;text-align:center;font-size:.78rem;border-left:1px solid var(--border);background:${m===currentMonth?'var(--accent2)':'transparent'};font-weight:${m===currentMonth?'600':'400'};color:${v>0?(m===currentMonth?'var(--accent)':p.color):'var(--text3)'};white-space:nowrap">${v>0?fmtShort(v):'—'}</td>`;}).join('')}
-              <td style="padding:.5rem .5rem;text-align:center;font-size:.82rem;font-weight:600;border-left:2px solid var(--border);color:${p.color}">${fmtShort(totPersona)}</td>
+              ${MONTHS.map((_,m)=>{const v=getC3MontoMes(p,m);return`<td style="padding:.4rem .35rem;text-align:center;font-size:.75rem;border-left:1px solid var(--border);background:${m===currentMonth?'var(--accent2)':'transparent'};font-weight:${m===currentMonth?'600':'400'};color:${v>0?(m===currentMonth?'var(--accent)':p.color):'var(--text3)'};white-space:nowrap">${v>0?fmt(v):'—'}</td>`;}).join('')}
+              <td style="padding:.4rem .5rem;text-align:center;font-size:.78rem;font-weight:600;border-left:2px solid var(--border);color:${p.color};white-space:nowrap">${fmt(totPersona)}</td>
             </tr>
           </tbody>
         </table>
