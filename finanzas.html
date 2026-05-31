@@ -1862,6 +1862,14 @@ function showPage(id){
 }
 function onMonthChange(){
   currentMonth=parseInt(document.getElementById('globalMonth').value);
+  // Update tarjetas filter if visible
+  const fd=document.getElementById('f-desde');
+  const fh=document.getElementById('f-hasta');
+  if(fd) fd.value=String(currentMonth);
+  if(fh) fh.value=String(currentMonth);
+  // Update conciliar mes if visible
+  const cm=document.getElementById('cc-mes');
+  if(cm){ cm.value=String(currentMonth); }
   const a=document.querySelector('.nav-btn.active');
   if(a){const m=a.getAttribute('onclick').match(/'([^']+)'/);if(m)renderPage(m[1]);}
 }
@@ -1899,6 +1907,11 @@ function switchTCTab(tabId){
   document.querySelectorAll('#page-tarjetas .tabs .tab').forEach((b,i)=>b.classList.toggle('active',ids[i]===tabId));
   if(tabId==='tab-tc-lista'){
     buildTCFilterOptions();
+    // Auto-filter to current month
+    const fd=document.getElementById('f-desde');
+    const fh=document.getElementById('f-hasta');
+    if(fd) fd.value=String(currentMonth);
+    if(fh) fh.value=String(currentMonth);
     applyTCFilters();
   }
   if(tabId==='tab-tc-resumen') renderTCResumen();
@@ -2697,8 +2710,11 @@ function getFilteredConsumos(){
     if(banco&&c.banco!==banco)return false;
     if(centro&&c.centro!==centro)return false;
     if(cat&&c.categoria!==cat)return false;
-    if(desdeInt!==null&&c.primerMes<desdeInt)return false;
-    if(hastaInt!==null&&c.primerMes>hastaInt)return false;
+    // Filter by whether the consumo has a cuota active in the selected month range
+    const pm=parseInt(c.primerMes)||0;
+    const lastMes=pm+(parseInt(c.cuotas)||1)-1;
+    if(desdeInt!==null&&lastMes<desdeInt)return false; // finished before desde
+    if(hastaInt!==null&&pm>hastaInt)return false; // starts after hasta
     if(desc&&!(c.desc||'').toLowerCase().includes(desc)&&!(c.categoria||'').toLowerCase().includes(desc))return false;
     return true;
   });
