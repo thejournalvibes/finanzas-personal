@@ -331,7 +331,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .tc3-row:hover{background:var(--surface2)}
 .tc3-header{background:var(--surface2);font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)}
 .mes-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:0;border-top:1px solid var(--border)}
-.mes-cell{padding:.5rem .4rem;text-align:center;font-size:.72rem;border-right:1px solid var(--border)}
+.mes-cell{padding:.5rem .5rem;text-align:center;font-size:.72rem;border-right:1px solid var(--border);white-space:nowrap;overflow:visible}
 .mes-cell:last-child{border-right:none}
 .mes-cell-header{background:var(--surface2);font-weight:500;font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)}
 .mes-cell-active{background:var(--accent2);color:var(--accent);font-weight:600}
@@ -4109,7 +4109,7 @@ function renderC3(){
           <tbody>
             <tr>
               <td style="padding:.5rem 1rem;font-size:.72rem;color:var(--text3)">Cuotas</td>
-              ${MONTHS.map((_,m)=>{const v=getC3MontoMes(p,m);return`<td style="padding:.5rem .5rem;text-align:center;font-size:.78rem;border-left:1px solid var(--border);background:${m===currentMonth?'var(--accent2)':'transparent'};font-weight:${m===currentMonth?'600':'400'};color:${v>0?(m===currentMonth?'var(--accent)':p.color):'var(--text3)'}">${v>0?fmtShort(v):'—'}</td>`;}).join('')}
+              ${MONTHS.map((_,m)=>{const v=getC3MontoMes(p,m);return`<td style="padding:.5rem .5rem;text-align:center;font-size:.78rem;border-left:1px solid var(--border);background:${m===currentMonth?'var(--accent2)':'transparent'};font-weight:${m===currentMonth?'600':'400'};color:${v>0?(m===currentMonth?'var(--accent)':p.color):'var(--text3)'};white-space:nowrap">${v>0?fmtShort(v):'—'}</td>`;}).join('')}
               <td style="padding:.5rem .5rem;text-align:center;font-size:.82rem;font-weight:600;border-left:2px solid var(--border);color:${p.color}">${fmtShort(totPersona)}</td>
             </tr>
           </tbody>
