@@ -229,6 +229,27 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .mov-ing{color:var(--success)}
 .mov-eg{color:var(--danger)}
 
+/* ---- DEUDAS ---- */
+.deuda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.25rem;margin-bottom:1.5rem}
+.deuda-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;transition:box-shadow .15s}
+.deuda-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.deuda-card-top{padding:1.25rem 1.25rem .75rem;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.4rem}
+.deuda-card-name{font-size:.95rem;font-weight:500}
+.deuda-card-date{font-size:.72rem;color:var(--text3)}
+.deuda-card-table{width:100%;border-top:1px solid var(--border);border-collapse:collapse}
+.deuda-card-table td{padding:.55rem 1rem;font-size:.8rem;border-bottom:1px solid var(--border)}
+.deuda-card-table td:last-child{text-align:right;font-weight:500}
+.deuda-card-table tr:last-child td{border-bottom:none}
+.deuda-card-label{color:var(--text3);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.deuda-card-actions{position:absolute;top:.6rem;right:.6rem;display:flex;gap:.3rem}
+.pago-list{border-top:1px solid var(--border);max-height:150px;overflow-y:auto}
+.pago-item{display:grid;grid-template-columns:72px 1fr auto 28px;gap:.4rem;align-items:center;padding:.5rem 1rem;border-bottom:1px solid var(--border);font-size:.78rem}
+.pago-item:last-child{border-bottom:none}
+.pago-item:hover{background:var(--surface2)}
+.deuda-ring-summary{display:flex;align-items:center;gap:2rem;padding:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1.5rem;flex-wrap:wrap}
+.deuda-ring-summary-stats{display:flex;flex-direction:column;gap:.6rem;flex:1}
+.deuda-ring-stat{display:flex;justify-content:space-between;font-size:.875rem}
+
 /* ---- LOGIN SCREEN ---- */
 .login-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:2.5rem;width:100%;max-width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.08)}
@@ -372,6 +393,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   <button class="nav-btn" onclick="showPage('ahorros')">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M22 2L16 8"/><path d="M22 8V2h-6"/></svg>
     Ahorros
+  </button>
+  <button class="nav-btn" onclick="showPage('deudas')">
+    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v2m0 8v2"/></svg>
+    Deudas
   </button>
   <button class="nav-btn" onclick="showPage('presupuesto')">
     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
@@ -1386,6 +1411,108 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   <div id="c3-list"></div>
 </div>
 
+<!-- ============ DEUDAS ============ -->
+<div id="page-deudas" class="page" style="display:none">
+  <div class="page-header">
+    <h1 class="page-title">Deudas</h1>
+    <p class="page-sub">Préstamos que debés · seguí el progreso de cada uno</p>
+  </div>
+
+  <div class="stats-grid" id="deu-top-stats"></div>
+
+  <div class="tabs" id="deudas-tabs">
+    <button class="tab active" onclick="switchDeudasTab('dtab-deudas')">💳 Mis deudas</button>
+    <button class="tab" onclick="switchDeudasTab('dtab-historial')">📅 Historial de pagos</button>
+    <button class="tab" onclick="switchDeudasTab('dtab-proyeccion')">📊 Proyección</button>
+  </div>
+
+  <!-- TAB: DEUDAS -->
+  <div id="dtab-deudas" class="tab-content active">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
+      <button class="btn btn-primary" onclick="openDeuForm()">+ Nueva deuda</button>
+    </div>
+
+    <!-- form -->
+    <div id="deu-form" class="card" style="display:none;margin-bottom:1.5rem">
+      <div class="card-header"><span class="card-title" id="deu-form-title">Nueva deuda</span></div>
+      <div class="form-panel" style="display:block;background:var(--surface)">
+        <div class="form-grid">
+          <div class="form-group"><label>Acreedor (¿A quién le debés?)</label><input id="df-nombre" placeholder="Ej: Banco Galicia, Papá, Tarjeta..."></div>
+          <div class="form-group"><label>Ícono / emoji</label><input id="df-emoji" placeholder="💳" maxlength="4" style="font-size:1.3rem;text-align:center;width:80px"></div>
+          <div class="form-group"><label>Monto total de la deuda ($)</label><input type="number" id="df-total" placeholder="0"></div>
+          <div class="form-group"><label>Ya pagado ($)</label><input type="number" id="df-pagado-ini" placeholder="0"></div>
+          <div class="form-group"><label>Fecha límite (opcional)</label><input type="date" id="df-fecha"></div>
+          <div class="form-group"><label>Tipo</label>
+            <select id="df-tipo">
+              <option value="prestamo">💰 Préstamo personal</option>
+              <option value="banco">🏦 Préstamo bancario</option>
+              <option value="tarjeta">💳 Deuda de tarjeta</option>
+              <option value="hipoteca">🏠 Hipoteca</option>
+              <option value="otro">📋 Otro</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Color</label>
+            <select id="df-color">
+              <option value="#c94040">Rojo</option>
+              <option value="#b56a1e">Naranja</option>
+              <option value="#7c6fcd">Violeta</option>
+              <option value="#2d7a4f">Verde</option>
+              <option value="#3b82f6">Azul</option>
+              <option value="#d946ef">Rosa</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Notas</label><input id="df-notas" placeholder="Descripción, condiciones..."></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="saveDeu()">Guardar deuda</button>
+          <button class="btn btn-ghost" onclick="closeDeuForm()">Cancelar</button>
+          <span id="df-edit-id" style="display:none"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary ring -->
+    <div id="deu-ring-summary"></div>
+
+    <!-- cards -->
+    <div id="deu-list"></div>
+  </div>
+
+  <!-- TAB: HISTORIAL -->
+  <div id="dtab-historial" class="tab-content">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Historial de todos los pagos</span></div>
+      <table>
+        <thead><tr><th>Fecha</th><th>Deuda</th><th>Nota</th><th class="text-right">Monto pagado</th></tr></thead>
+        <tbody id="deu-historial-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: PROYECCIÓN -->
+  <div id="dtab-proyeccion" class="tab-content">
+    <div class="stats-grid" id="deu-proy-stats"></div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Estado de cada deuda</span></div>
+      <table>
+        <thead><tr><th>Deuda</th><th>Tipo</th><th class="text-right">Total</th><th class="text-right">Pagado</th><th class="text-right">Saldo</th><th>Fecha límite</th><th class="text-right">% pagado</th><th>Estado</th></tr></thead>
+        <tbody id="deu-proy-tbody"></tbody>
+        <tfoot><tr style="background:var(--surface2);font-weight:500">
+          <td colspan="2" style="padding:.875rem 1.5rem">TOTALES</td>
+          <td class="text-right" id="deu-tot-total" style="padding:.875rem 1.5rem">$0</td>
+          <td class="text-right" id="deu-tot-pagado" style="padding:.875rem 1.5rem;color:var(--success)">$0</td>
+          <td class="text-right" id="deu-tot-saldo" style="padding:.875rem 1.5rem;color:var(--danger)">$0</td>
+          <td colspan="3"></td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <div class="card" style="margin-top:1.5rem">
+      <div class="card-header"><span class="card-title">Progreso visual por deuda</span></div>
+      <div id="deu-proy-bars" style="padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ GRÁFICOS ============ -->
 <div id="page-graficos" class="page" style="display:none">
   <div class="page-header"><h1 class="page-title">Análisis visual</h1><p class="page-sub">Tus finanzas de un vistazo</p></div>
@@ -1621,6 +1748,7 @@ function onMonthChange(){
   if(a){const m=a.getAttribute('onclick').match(/'([^']+)'/);if(m)renderPage(m[1]);}
 }
 function renderPage(id){
+  if(id==='deudas')renderDeudas();
   if(id==='ahorros')renderAhorros();
   if(id==='prestamo')renderPrestamo();
   if(id==='ema')renderEma();
@@ -2826,6 +2954,364 @@ function switchFlujoTab(tabId){
 }
 
 // ================================================
+// DEUDAS
+// ================================================
+// deuDeudas: [{id, nombre, emoji, total, pagadoIni, tipo, color, fechaLimite, notas, pagos:[{id,fecha,monto,nota,tipo}]}]
+let deuDeudas = ld('deuDeudas', []);
+
+// ---- helpers ----
+function deuGetPagado(d){ return (parseFloat(d.pagadoIni)||0)+(d.pagos||[]).reduce((s,p)=>s+parseFloat(p.monto||0),0); }
+function deuGetSaldo(d){ return Math.max(0,parseFloat(d.total||0)-deuGetPagado(d)); }
+function deuGetPct(d){ const t=parseFloat(d.total||0); return t>0?Math.min(100,Math.round(deuGetPagado(d)/t*100)):0; }
+function deuMesesHasta(f){ if(!f)return null; const hoy=new Date(),lim=new Date(f+'T12:00:00'); return Math.max(0,Math.round((lim-hoy)/(1000*60*60*24*30.44))); }
+const DEU_TIPO_LABEL = { prestamo:'💰 Préstamo personal', banco:'🏦 Banco', tarjeta:'💳 Tarjeta', hipoteca:'🏠 Hipoteca', otro:'📋 Otro' };
+
+function renderDeudas(){
+  renderDeuStats();
+  renderDeuList();
+  renderDeuHistorial();
+  renderDeuProyeccion();
+}
+
+function renderDeuStats(){
+  const totalDeuda=deuDeudas.reduce((s,d)=>s+parseFloat(d.total||0),0);
+  const totalPagado=deuDeudas.reduce((s,d)=>s+deuGetPagado(d),0);
+  const totalSaldo=deuDeudas.reduce((s,d)=>s+deuGetSaldo(d),0);
+  const completadas=deuDeudas.filter(d=>deuGetSaldo(d)===0&&d.total>0).length;
+  const pctGlobal=totalDeuda>0?Math.min(100,Math.round(totalPagado/totalDeuda*100)):0;
+  document.getElementById('deu-top-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Deuda total</div><div class="stat-value expense">${fmt(totalDeuda)}</div><div class="stat-sub">${deuDeudas.length} deudas</div></div>
+    <div class="stat-card"><div class="stat-label">Ya pagado</div><div class="stat-value income">${fmt(totalPagado)}</div><div class="stat-sub">${pctGlobal}% del total</div></div>
+    <div class="stat-card"><div class="stat-label">Saldo pendiente</div><div class="stat-value expense">${fmt(totalSaldo)}</div></div>
+    <div class="stat-card"><div class="stat-label">Deudas saldadas</div><div class="stat-value income">${completadas}</div><div class="stat-sub">de ${deuDeudas.length}</div></div>
+  `;
+}
+
+// ---- FORM ----
+function openDeuForm(editId){
+  const f=document.getElementById('deu-form');
+  f.style.display='block';
+  document.getElementById('deu-form-title').textContent=editId?'Editar deuda':'Nueva deuda';
+  if(editId){
+    const d=deuDeudas.find(d=>d.id===editId); if(!d)return;
+    document.getElementById('df-nombre').value=d.nombre;
+    document.getElementById('df-emoji').value=d.emoji||'💳';
+    document.getElementById('df-total').value=d.total||0;
+    document.getElementById('df-pagado-ini').value=d.pagadoIni||0;
+    document.getElementById('df-fecha').value=d.fechaLimite||'';
+    document.getElementById('df-tipo').value=d.tipo||'prestamo';
+    document.getElementById('df-color').value=d.color||'#c94040';
+    document.getElementById('df-notas').value=d.notas||'';
+    document.getElementById('df-edit-id').textContent=editId;
+  } else {
+    ['df-nombre','df-total','df-pagado-ini','df-fecha','df-notas'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('df-emoji').value='💳';
+    document.getElementById('df-color').value='#c94040';
+    document.getElementById('df-edit-id').textContent='';
+  }
+  f.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeDeuForm(){ document.getElementById('deu-form').style.display='none'; }
+function saveDeu(){
+  const nombre=document.getElementById('df-nombre').value.trim();
+  if(!nombre){toast('⚠️ Escribí el nombre del acreedor');return;}
+  const d={
+    nombre,
+    emoji:document.getElementById('df-emoji').value||'💳',
+    total:parseFloat(document.getElementById('df-total').value)||0,
+    pagadoIni:parseFloat(document.getElementById('df-pagado-ini').value)||0,
+    fechaLimite:document.getElementById('df-fecha').value,
+    tipo:document.getElementById('df-tipo').value,
+    color:document.getElementById('df-color').value,
+    notas:document.getElementById('df-notas').value.trim(),
+  };
+  const editId=document.getElementById('df-edit-id').textContent;
+  if(editId){
+    const idx=deuDeudas.findIndex(x=>x.id===editId);
+    if(idx>=0) deuDeudas[idx]={...deuDeudas[idx],...d};
+    toast('✅ Deuda actualizada');
+  } else {
+    deuDeudas.push({id:genId(),...d,pagos:[]});
+    toast('✅ Deuda agregada');
+  }
+  sd('deuDeudas',deuDeudas);
+  closeDeuForm();
+  renderDeudas();
+}
+function deleteDeu(id){ if(!confirm('¿Eliminar esta deuda y todos sus pagos?'))return; deuDeudas=deuDeudas.filter(d=>d.id!==id); sd('deuDeudas',deuDeudas); renderDeudas(); toast('🗑️ Eliminado'); }
+
+// ---- PAGO MODAL (reuse dep-modal) ----
+let _deuActivePagoId=null;
+function openDeuPago(deudaId){
+  _deuActivePagoId=deudaId;
+  const d=deuDeudas.find(d=>d.id===deudaId); if(!d)return;
+  document.getElementById('dep-modal-obj-id').textContent='__deu__'+deudaId;
+  document.getElementById('dep-modal-name').textContent=d.nombre;
+  document.getElementById('dep-modal').classList.add('open');
+  document.getElementById('dep-modal').dataset.mode='deu';
+  document.querySelector('#dep-modal .modal-body').innerHTML=`
+    <div class="form-group"><label>Tipo de pago</label>
+      <select id="deu-pago-tipo" style="margin-bottom:.25rem">
+        <option value="cuota">📅 Cuota</option>
+        <option value="parcial">💸 Pago parcial</option>
+        <option value="total">✅ Pago total</option>
+        <option value="extra">⚡ Pago extra</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Monto ($)</label>
+      <input type="number" id="deu-pago-monto" placeholder="0" style="font-size:1rem">
+    </div>
+    <div class="form-group"><label>Fecha</label>
+      <input type="date" id="deu-pago-fecha" value="${new Date().toISOString().slice(0,10)}">
+    </div>
+    <div class="form-group"><label>Nota (opcional)</label>
+      <input id="deu-pago-nota" placeholder="Ej: cuota de mayo...">
+    </div>
+    <div style="background:var(--danger2);border-radius:var(--radius-sm);padding:.75rem;font-size:.82rem;color:var(--danger)">
+      Saldo actual: <strong>${fmt(deuGetSaldo(d))}</strong> · Pagado: <strong>${fmt(deuGetPagado(d))}</strong> de <strong>${fmt(d.total)}</strong>
+    </div>
+  `;
+}
+function deleteDeuPago(deudaId,pagoId){
+  const idx=deuDeudas.findIndex(d=>d.id===deudaId); if(idx<0)return;
+  deuDeudas[idx].pagos=deuDeudas[idx].pagos.filter(p=>p.id!==pagoId);
+  sd('deuDeudas',deuDeudas); renderDeudas(); toast('🗑️ Pago eliminado');
+}
+
+// ---- RENDER LIST ----
+function renderDeuList(){
+  const totalDeuda=deuDeudas.reduce((s,d)=>s+parseFloat(d.total||0),0);
+  const totalPagado=deuDeudas.reduce((s,d)=>s+deuGetPagado(d),0);
+  const pctGlobal=totalDeuda>0?Math.min(100,Math.round(totalPagado/totalDeuda*100)):0;
+
+  // Summary ring
+  document.getElementById('deu-ring-summary').innerHTML=`<div class="deuda-ring-summary">
+    <div style="position:relative;width:140px;height:140px;flex-shrink:0">
+      <canvas id="deu-ring-global" width="140" height="140"></canvas>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+        <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:400;color:var(--danger)">${pctGlobal}%</div>
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:.15rem">pagado</div>
+      </div>
+    </div>
+    <div class="deuda-ring-summary-stats">
+      <div style="font-family:'Fraunces',serif;font-size:1.1rem;margin-bottom:.5rem">Estado global de deudas</div>
+      <div class="deuda-ring-stat"><span style="color:var(--text2)">Deuda total</span><span style="font-weight:500;color:var(--danger)">${fmt(totalDeuda)}</span></div>
+      <div class="deuda-ring-stat"><span style="color:var(--text2)">Total pagado</span><span style="font-weight:500;color:var(--success)">${fmt(totalPagado)}</span></div>
+      <div class="deuda-ring-stat"><span style="color:var(--text2)">Saldo pendiente</span><span style="font-weight:500;color:var(--danger)">${fmt(Math.max(0,totalDeuda-totalPagado))}</span></div>
+      <div class="deuda-ring-stat"><span style="color:var(--text2)">Deudas activas</span><span style="font-weight:500">${deuDeudas.filter(d=>deuGetSaldo(d)>0).length} de ${deuDeudas.length}</span></div>
+    </div>
+  </div>`;
+  requestAnimationFrame(()=>drawRing('deu-ring-global',pctGlobal,'#c94040','#e5e2dc',14));
+
+  if(!deuDeudas.length){
+    document.getElementById('deu-list').innerHTML=`<div style="text-align:center;padding:3rem;color:var(--text3)">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">💳</div>
+      <div style="font-size:1rem;font-weight:500;color:var(--text);margin-bottom:.4rem">Sin deudas registradas</div>
+      <div style="font-size:.85rem">Agregá tu primera deuda con el botón de arriba</div>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('deu-list').innerHTML=`<div class="deuda-grid">${deuDeudas.map(d=>{
+    const pagado=deuGetPagado(d);
+    const saldo=deuGetSaldo(d);
+    const pct=deuGetPct(d);
+    const total=parseFloat(d.total||0);
+    const saldada=saldo===0&&total>0;
+    const color=saldada?'#2d7a4f':(d.color||'#c94040');
+    const mesesLeft=deuMesesHasta(d.fechaLimite);
+    const fechaStr=d.fechaLimite?new Date(d.fechaLimite+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'Sin fecha';
+    const pagos=[...(d.pagos||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    return`<div class="deuda-card">
+      <div class="deuda-card-actions">
+        <button class="edit-btn" onclick="openDeuForm('${d.id}')">✏️</button>
+        <button class="del-btn" onclick="deleteDeu('${d.id}')">✕</button>
+      </div>
+      <div class="deuda-card-top">
+        <div style="position:relative;width:110px;height:110px">
+          <canvas id="deu-ring-${d.id}" width="110" height="110"></canvas>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+            <div style="font-size:1.5rem;line-height:1">${d.emoji||'💳'}</div>
+            <div style="font-family:'Fraunces',serif;font-size:1.3rem;font-weight:400;line-height:1;color:${color}">${saldada?'✅':pct+'%'}</div>
+          </div>
+        </div>
+        <div class="deuda-card-name">${d.nombre}</div>
+        <div style="font-size:.72rem;color:var(--text3)">${DEU_TIPO_LABEL[d.tipo]||d.tipo}</div>
+        <div class="deuda-card-date">📅 ${fechaStr}${mesesLeft!==null?' · '+mesesLeft+'m':''}</div>
+        ${saldada?'<span class="badge badge-green">✅ Saldada</span>':''}
+      </div>
+      <table class="deuda-card-table">
+        <tr><td class="deuda-card-label">Deuda total</td><td style="color:var(--danger)">${fmt(total)}</td></tr>
+        <tr><td class="deuda-card-label">Pagado</td><td style="color:var(--success)">${fmt(pagado)}</td></tr>
+        <tr><td class="deuda-card-label">Saldo</td><td style="color:${saldada?'var(--success)':'var(--danger)'}">${fmt(saldo)}</td></tr>
+        <tr><td class="deuda-card-label">Fecha límite</td><td>${fechaStr}</td></tr>
+        ${d.notas?`<tr><td class="deuda-card-label">Notas</td><td style="font-size:.75rem;color:var(--text2)">${d.notas}</td></tr>`:''}
+      </table>
+      ${pagos.length?`<div class="pago-list">${pagos.slice(0,4).map(p=>`<div class="pago-item">
+        <span style="color:var(--text3)">${p.fecha?new Date(p.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}):'—'}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nota||p.tipo||'Pago'}</span>
+        <span style="color:var(--success);font-weight:500;white-space:nowrap">−${fmt(p.monto)}</span>
+        <button class="del-btn" onclick="deleteDeuPago('${d.id}','${p.id}')">✕</button>
+      </div>`).join('')}${pagos.length>4?`<div style="padding:.4rem 1rem;font-size:.72rem;color:var(--text3);text-align:center">+ ${pagos.length-4} pagos más</div>`:''}</div>`:''}
+      <div style="padding:.75rem 1rem;border-top:1px solid var(--border)">
+        <button class="btn btn-primary" style="width:100%;font-size:.8rem;padding:.5rem;background:var(--danger)" onclick="openDeuPago('${d.id}')">
+          ${saldada?'✅ Saldada — ver pagos':'💸 Registrar pago'}
+        </button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+
+  requestAnimationFrame(()=>{
+    drawRing('deu-ring-global',pctGlobal,'#c94040','#e5e2dc',14);
+    deuDeudas.forEach(d=>{
+      const pct=deuGetPct(d);
+      const saldada=deuGetSaldo(d)===0&&d.total>0;
+      const color=saldada?'#2d7a4f':(d.color||'#c94040');
+      drawRing('deu-ring-'+d.id,pct,color,'#e5e2dc',11);
+    });
+  });
+}
+
+// ---- HISTORIAL ----
+function renderDeuHistorial(){
+  const allPagos=[];
+  deuDeudas.forEach(d=>{
+    (d.pagos||[]).forEach(p=>allPagos.push({...p,deuNombre:d.nombre,deuEmoji:d.emoji||'💳'}));
+  });
+  allPagos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  document.getElementById('deu-historial-tbody').innerHTML=allPagos.length?allPagos.map(p=>`
+    <tr>
+      <td style="font-size:.82rem;color:var(--text2)">${p.fecha?new Date(p.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'-'}</td>
+      <td class="fw-500">${p.deuEmoji} ${p.deuNombre}</td>
+      <td style="font-size:.82rem;color:var(--text2)">${p.nota||p.tipo||'—'}</td>
+      <td class="text-right" style="color:var(--success);font-weight:500">−${fmt(p.monto)}</td>
+    </tr>`).join(''):'<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text3)">Sin pagos registrados</td></tr>';
+}
+
+// ---- PROYECCIÓN ----
+function renderDeuProyeccion(){
+  const totT=deuDeudas.reduce((s,d)=>s+parseFloat(d.total||0),0);
+  const totP=deuDeudas.reduce((s,d)=>s+deuGetPagado(d),0);
+  const totS=deuDeudas.reduce((s,d)=>s+deuGetSaldo(d),0);
+  document.getElementById('deu-proy-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Deuda total</div><div class="stat-value expense">${fmt(totT)}</div></div>
+    <div class="stat-card"><div class="stat-label">Total pagado</div><div class="stat-value income">${fmt(totP)}</div></div>
+    <div class="stat-card"><div class="stat-label">Saldo pendiente</div><div class="stat-value expense">${fmt(totS)}</div></div>
+  `;
+  document.getElementById('deu-tot-total').textContent=fmt(totT);
+  document.getElementById('deu-tot-pagado').textContent=fmt(totP);
+  document.getElementById('deu-tot-saldo').textContent=fmt(totS);
+
+  document.getElementById('deu-proy-tbody').innerHTML=deuDeudas.map(d=>{
+    const pagado=deuGetPagado(d),saldo=deuGetSaldo(d),pct=deuGetPct(d),total=parseFloat(d.total||0);
+    const saldada=saldo===0&&total>0;
+    const meses=deuMesesHasta(d.fechaLimite);
+    const fechaStr=d.fechaLimite?new Date(d.fechaLimite+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'—';
+    return`<tr>
+      <td class="fw-500">${d.emoji||'💳'} ${d.nombre}</td>
+      <td style="font-size:.8rem;color:var(--text2)">${DEU_TIPO_LABEL[d.tipo]||d.tipo}</td>
+      <td class="text-right" style="color:var(--danger)">${fmt(total)}</td>
+      <td class="text-right" style="color:var(--success)">${fmt(pagado)}</td>
+      <td class="text-right" style="color:${saldada?'var(--success)':'var(--danger)'};font-weight:500">${fmt(saldo)}</td>
+      <td style="font-size:.8rem;color:var(--text2)">${fechaStr}${meses!==null?' ('+meses+'m)':''}</td>
+      <td class="text-right"><span style="font-weight:500;color:${pct>=75?'var(--success)':pct>=40?'var(--warn)':'var(--danger)'}">${pct}%</span></td>
+      <td>${saldada?'<span class="badge badge-green">✅ Saldada</span>':meses===0?'<span class="badge badge-red">⚠️ Vencida</span>':'<span class="badge badge-orange">En curso</span>'}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--text3)">Sin deudas</td></tr>';
+
+  document.getElementById('deu-proy-bars').innerHTML=deuDeudas.map(d=>{
+    const pct=deuGetPct(d),saldada=deuGetSaldo(d)===0&&d.total>0;
+    const color=saldada?'var(--success)':pct>=75?'var(--success)':pct>=40?'var(--warn)':'var(--danger)';
+    return`<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.85rem">
+        <span><span style="margin-right:.4rem">${d.emoji||'💳'}</span><strong>${d.nombre}</strong></span>
+        <span style="color:var(--text2)">${fmt(deuGetPagado(d))} de ${fmt(d.total)} · <strong style="color:${color}">${pct}%</strong></span>
+      </div>
+      <div style="background:var(--surface3);border-radius:5px;height:10px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:5px;transition:width .4s"></div>
+      </div>
+      ${saldada?'<div style="font-size:.72rem;color:var(--success);margin-top:.25rem">✅ Deuda saldada</div>':''}
+    </div>`;
+  }).join('')||'<p style="color:var(--text3);font-size:.875rem">Sin deudas registradas.</p>';
+}
+
+function switchDeudasTab(tabId){
+  const ids=['dtab-deudas','dtab-historial','dtab-proyeccion'];
+  ids.forEach(id=>{const el=document.getElementById(id);if(el){el.classList.toggle('active',id===tabId);el.style.display=id===tabId?'block':'none';}});
+  document.querySelectorAll('#deudas-tabs .tab').forEach((b,i)=>b.classList.toggle('active',ids[i]===tabId));
+  if(tabId==='dtab-historial') renderDeuHistorial();
+  if(tabId==='dtab-proyeccion') renderDeuProyeccion();
+}
+
+// Override confirmDepModal to handle deu mode
+function confirmDepModal(){
+  const mode=document.getElementById('dep-modal').dataset.mode;
+  if(mode==='deu'){
+    const deudaId=_deuActivePagoId;
+    const tipo=document.getElementById('deu-pago-tipo')?.value||'cuota';
+    const monto=parseFloat(document.getElementById('deu-pago-monto')?.value)||0;
+    const fecha=document.getElementById('deu-pago-fecha')?.value||'';
+    const nota=document.getElementById('deu-pago-nota')?.value.trim()||'';
+    if(!monto){toast('⚠️ Ingresá un monto');return;}
+    const idx=deuDeudas.findIndex(d=>d.id===deudaId);
+    if(idx<0)return;
+    if(!deuDeudas[idx].pagos) deuDeudas[idx].pagos=[];
+    deuDeudas[idx].pagos.push({id:genId(),tipo,monto,fecha,nota});
+    sd('deuDeudas',deuDeudas);
+    closeDepModal();
+    document.getElementById('dep-modal').dataset.mode='';
+    document.querySelector('#dep-modal .modal-body').innerHTML=`
+      <div class="form-group"><label>Monto ($)</label><input type="number" id="dep-modal-monto" placeholder="0" style="font-size:1rem"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="dep-modal-fecha"></div>
+      <div class="form-group"><label>Nota (opcional)</label><input id="dep-modal-nota" placeholder="Ej: transferencia a Galicia..."></div>
+    `;
+    renderDeudas();
+    toast(`✅ Pago de ${fmt(monto)} registrado`);
+    return;
+  }
+  // c3 mode
+  if(mode==='c3'){
+    const personaId=_c3ActivePersonId;
+    const fechaAlta=document.getElementById('c3-alta')?.value||'';
+    const primerMes=parseInt(document.getElementById('c3-primer')?.value)||0;
+    const desc=document.getElementById('c3-desc')?.value.trim()||'';
+    const monto=parseFloat(document.getElementById('c3-monto')?.value)||0;
+    const cuotas=parseInt(document.getElementById('c3-cuotas')?.value)||1;
+    if(!desc){toast('⚠️ Escribí una descripción');return;}
+    if(!monto){toast('⚠️ Ingresá un monto');return;}
+    const idx=c3Personas.findIndex(p=>p.id===personaId);
+    if(idx<0)return;
+    c3Personas[idx].consumos.push({id:genId(),fechaAlta,primerMes,desc,monto,cuotas});
+    sd('c3Personas',c3Personas);
+    closeDepModal();
+    document.getElementById('dep-modal').dataset.mode='';
+    document.querySelector('#dep-modal .modal-body').innerHTML=`
+      <div class="form-group"><label>Monto ($)</label><input type="number" id="dep-modal-monto" placeholder="0" style="font-size:1rem"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="dep-modal-fecha"></div>
+      <div class="form-group"><label>Nota (opcional)</label><input id="dep-modal-nota" placeholder="Ej: transferencia a Galicia..."></div>
+    `;
+    renderC3();
+    toast('✅ Compra agregada');
+    return;
+  }
+  // normal deposit (ahorros)
+  const objId=document.getElementById('dep-modal-obj-id').textContent;
+  const monto=parseFloat(document.getElementById('dep-modal-monto').value)||0;
+  const fecha=document.getElementById('dep-modal-fecha').value;
+  const nota=document.getElementById('dep-modal-nota').value.trim();
+  if(!monto){toast('⚠️ Ingresá un monto');return;}
+  if(!fecha){toast('⚠️ Seleccioná una fecha');return;}
+  const idx=savObjetivos.findIndex(o=>o.id===objId);
+  if(idx<0)return;
+  if(!savObjetivos[idx].depositos) savObjetivos[idx].depositos=[];
+  savObjetivos[idx].depositos.push({id:genId(),fecha,monto,nota});
+  sd('savObjetivos',savObjetivos);
+  closeDepModal();
+  renderAhorros();
+  toast(`✅ +${fmt(monto)} depositado en "${savObjetivos[idx].nombre}"`);
+}
+
+// ================================================
 // AHORROS
 // ================================================
 // savObjetivos: [{id, nombre, emoji, meta, ini, color, fechaLimite, notas, depositos:[{id,fecha,monto,nota,objId}]}]
@@ -2946,23 +3432,7 @@ function openSavDep(objId){
 function closeDepModal(){
   document.getElementById('dep-modal').classList.remove('open');
 }
-function confirmDepModal(){
-  const objId=document.getElementById('dep-modal-obj-id').textContent;
-  const monto=parseFloat(document.getElementById('dep-modal-monto').value)||0;
-  const fecha=document.getElementById('dep-modal-fecha').value;
-  const nota=document.getElementById('dep-modal-nota').value.trim();
-  if(!monto){toast('⚠️ Ingresá un monto');return;}
-  if(!fecha){toast('⚠️ Seleccioná una fecha');return;}
-  const idx=savObjetivos.findIndex(o=>o.id===objId);
-  if(idx<0)return;
-  if(!savObjetivos[idx].depositos) savObjetivos[idx].depositos=[];
-  savObjetivos[idx].depositos.push({id:genId(),fecha,monto,nota});
-  sd('savObjetivos',savObjetivos);
-  closeDepModal();
-  renderAhorros();
-  toast(`✅ +${fmt(monto)} depositado en "${savObjetivos[idx].nombre}"`);
-}
-// keep saveSavDep as alias (used nowhere now but safe to keep)
+// saveSavDep alias
 function saveSavDep(objId){ confirmDepModal(); }
 function deleteSavDep(objId,depId){
   const idx=savObjetivos.findIndex(o=>o.id===objId);
@@ -3702,51 +4172,7 @@ function deleteC3Consumo(personaId,consumoId){
   sd('c3Personas',c3Personas);renderC3();toast('🗑️ Compra eliminada');
 }
 
-// Override confirmDepModal to handle c3 mode
-const _origConfirmDep=confirmDepModal;
-function confirmDepModal(){
-  const mode=document.getElementById('dep-modal').dataset.mode;
-  if(mode==='c3'){
-    const personaId=_c3ActivePersonId;
-    const fechaAlta=document.getElementById('c3-alta')?.value||'';
-    const primerMes=parseInt(document.getElementById('c3-primer')?.value)||0;
-    const desc=document.getElementById('c3-desc')?.value.trim()||'';
-    const monto=parseFloat(document.getElementById('c3-monto')?.value)||0;
-    const cuotas=parseInt(document.getElementById('c3-cuotas')?.value)||1;
-    if(!desc){toast('⚠️ Escribí una descripción');return;}
-    if(!monto){toast('⚠️ Ingresá un monto');return;}
-    const idx=c3Personas.findIndex(p=>p.id===personaId);
-    if(idx<0)return;
-    c3Personas[idx].consumos.push({id:genId(),fechaAlta,primerMes,desc,monto,cuotas});
-    sd('c3Personas',c3Personas);
-    closeDepModal();
-    document.getElementById('dep-modal').dataset.mode='';
-    // restore modal body
-    document.querySelector('#dep-modal .modal-body').innerHTML=`
-      <div class="form-group"><label>Monto ($)</label><input type="number" id="dep-modal-monto" placeholder="0" style="font-size:1rem"></div>
-      <div class="form-group"><label>Fecha</label><input type="date" id="dep-modal-fecha"></div>
-      <div class="form-group"><label>Nota (opcional)</label><input id="dep-modal-nota" placeholder="Ej: transferencia a Galicia..."></div>
-    `;
-    renderC3();
-    toast('✅ Compra agregada');
-    return;
-  }
-  // normal deposit
-  const objId=document.getElementById('dep-modal-obj-id').textContent;
-  const monto=parseFloat(document.getElementById('dep-modal-monto').value)||0;
-  const fecha=document.getElementById('dep-modal-fecha').value;
-  const nota=document.getElementById('dep-modal-nota').value.trim();
-  if(!monto){toast('⚠️ Ingresá un monto');return;}
-  if(!fecha){toast('⚠️ Seleccioná una fecha');return;}
-  const idx=savObjetivos.findIndex(o=>o.id===objId);
-  if(idx<0)return;
-  if(!savObjetivos[idx].depositos) savObjetivos[idx].depositos=[];
-  savObjetivos[idx].depositos.push({id:genId(),fecha,monto,nota});
-  sd('savObjetivos',savObjetivos);
-  closeDepModal();
-  renderAhorros();
-  toast(`✅ +${fmt(monto)} depositado en "${savObjetivos[idx].nombre}"`);
-}
+// confirmDepModal handled centrally in DEUDAS section
 
 // ================================================
 // EMA EXCEL EXPORT
