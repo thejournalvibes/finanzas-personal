@@ -947,6 +947,46 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     </div>
   </div>
 
+  <div id="tab-tc-concil" class="tab-content" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🔍 Conciliar tarjeta</span>
+    </div>
+    <div style="padding:1rem 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;border-bottom:1px solid var(--border);background:var(--surface2);align-items:flex-end">
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Tarjeta</div>
+        <select id="cc-banco" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;min-width:180px"></select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Mes</div>
+        <select id="cc-mes" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem">
+          <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+          <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+          <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+          <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Total extracto ($)</div>
+        <input type="number" id="cc-extracto" placeholder="0" oninput="calcConcilDiff()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;width:140px">
+      </div>
+      <button onclick="concilMarcarTodos(true)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">✅ Marcar todos</button>
+      <button onclick="concilMarcarTodos(false)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">☐ Desmarcar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:36px 1fr 120px 80px 100px 80px;gap:.5rem;padding:.6rem 1.5rem;background:var(--surface2);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">
+      <span></span><span>Descripción</span><span style="text-align:right">Cuota $</span><span style="text-align:center">N° cuota</span><span style="text-align:right">Mes</span><span>Centro</span>
+    </div>
+    <div id="cc-rows"></div>
+    <div style="padding:.875rem 1.5rem;border-top:2px solid var(--border);background:var(--surface2);display:flex;gap:2rem;flex-wrap:wrap;font-size:.85rem;align-items:center">
+      <span>Tildados: <strong id="cc-ok">0</strong>/<strong id="cc-tot">0</strong></span>
+      <span>Suma: <strong id="cc-suma" style="color:var(--accent)">$0</strong></span>
+      <span>Extracto: <strong id="cc-ext-disp">$0</strong></span>
+      <span>Diferencia: <strong id="cc-diff">$0</strong></span>
+      <strong id="cc-status"></strong>
+    </div>
+  </div>
+</div>
+
   <div id="tab-tc-resumen" class="tab-content">
     <div class="stats-grid" id="tc-stats-tarjeta"></div>
     <div class="card">
@@ -1583,47 +1623,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div>
   
 
+
+
+  
+
 </div>
 
-<div id="tab-tc-concil" class="tab-content" style="display:none">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">🔍 Conciliar tarjeta</span>
-    </div>
-    <div style="padding:1rem 1.5rem;display:flex;flex-wrap:wrap;gap:1rem;border-bottom:1px solid var(--border);background:var(--surface2);align-items:flex-end">
-      <div>
-        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Tarjeta</div>
-        <select id="cc-banco" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;min-width:180px"></select>
-      </div>
-      <div>
-        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Mes</div>
-        <select id="cc-mes" onchange="loadConcilRows()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem">
-          <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
-          <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
-          <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
-          <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
-        </select>
-      </div>
-      <div>
-        <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;margin-bottom:.3rem">Total extracto ($)</div>
-        <input type="number" id="cc-extracto" placeholder="0" oninput="calcConcilDiff()" style="padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:.875rem;width:140px">
-      </div>
-      <button onclick="concilMarcarTodos(true)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">✅ Marcar todos</button>
-      <button onclick="concilMarcarTodos(false)" style="padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem">☐ Desmarcar</button>
-    </div>
-    <div style="display:grid;grid-template-columns:36px 1fr 120px 80px 100px 80px;gap:.5rem;padding:.6rem 1.5rem;background:var(--surface2);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">
-      <span></span><span>Descripción</span><span style="text-align:right">Cuota $</span><span style="text-align:center">N° cuota</span><span style="text-align:right">Mes</span><span>Centro</span>
-    </div>
-    <div id="cc-rows"></div>
-    <div style="padding:.875rem 1.5rem;border-top:2px solid var(--border);background:var(--surface2);display:flex;gap:2rem;flex-wrap:wrap;font-size:.85rem;align-items:center">
-      <span>Tildados: <strong id="cc-ok">0</strong>/<strong id="cc-tot">0</strong></span>
-      <span>Suma: <strong id="cc-suma" style="color:var(--accent)">$0</strong></span>
-      <span>Extracto: <strong id="cc-ext-disp">$0</strong></span>
-      <span>Diferencia: <strong id="cc-diff">$0</strong></span>
-      <strong id="cc-status"></strong>
-    </div>
-  </div>
-</div>
+
 
 <!-- ============ GRÁFICOS ============ -->
 <div id="page-graficos" class="page" style="display:none">
@@ -5119,3 +5125,8 @@ checkAuth();
 </script>
 </body>
 </html>
+  
+
+  
+
+
