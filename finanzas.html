@@ -769,14 +769,96 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 <div id="page-obligaciones" class="page" style="display:none">
   <div class="page-header">
     <h1 class="page-title">Obligaciones del mes</h1>
-    <p class="page-sub">Seguí el estado de cada pago</p>
+    <p class="page-sub">Control de pagos, disponible y cuánto falta juntar</p>
   </div>
+
+  <!-- TOP: Torta + dinero disponible -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+    <!-- Donut chart -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Progreso de pagos — <span id="oblig-mes-title"></span></span></div>
+      <div style="display:flex;align-items:center;gap:2rem;padding:1.5rem">
+        <div style="position:relative;width:140px;height:140px;flex-shrink:0">
+          <canvas id="oblig-donut" width="140" height="140"></canvas>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+            <div id="oblig-pct-txt" style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--success)">0%</div>
+            <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">pagado</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.6rem;flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:.875rem"><span style="color:var(--text2)">Total a pagar</span><span id="oblig-tot-label" style="font-weight:500;color:var(--danger)">$0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.875rem"><span style="color:var(--text2)">✅ Pagado</span><span id="oblig-pagado-label" style="font-weight:500;color:var(--success)">$0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:.875rem"><span style="color:var(--text2)">⏳ Pendiente</span><span id="oblig-pend-label" style="font-weight:500;color:var(--warn)">$0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liquidez -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">💰 ¿Cuánto me queda?</span></div>
+      <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem">
+        <div class="form-group" style="margin:0">
+          <label>Plata disponible hoy ($)</label>
+          <input type="number" id="oblig-disponible" placeholder="0"
+            oninput="saveObligDisponible(this.value);renderObligLiquidez()"
+            style="font-size:1.1rem;font-family:'Fraunces',serif;color:var(--accent)">
+        </div>
+        <div id="oblig-liquidez-detail" style="display:flex;flex-direction:column;gap:.5rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
   <div class="stats-grid" id="oblig-stats"></div>
+
+  <!-- Obligaciones list -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Vencimientos — <span id="oblig-mes-title"></span></span></div>
+    <div class="card-header">
+      <span class="card-title">Detalle de obligaciones</span>
+      <button class="btn btn-primary btn-sm" onclick="openObligForm()">+ Agregar manual</button>
+    </div>
+
+    <!-- Form -->
+    <div id="oblig-form" class="form-panel" style="display:none">
+      <div class="form-grid">
+        <div class="form-group"><label>Descripción</label><input id="of-desc" placeholder="Ej: Alquiler, Seguro..."></div>
+        <div class="form-group"><label>Categoría</label><input id="of-cat" placeholder="Ej: Vivienda, Servicios..."></div>
+        <div class="form-group"><label>Monto presupuestado ($)</label><input type="number" id="of-presup" placeholder="0"></div>
+        <div class="form-group"><label>Mes</label>
+          <select id="of-mes">
+            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-sm" onclick="saveObligManual()">Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeObligForm()">Cancelar</button>
+        <span id="of-edit-id" style="display:none"></span>
+      </div>
+    </div>
+
+    <!-- Table -->
     <table>
-      <thead><tr><th>Estado</th><th>Descripción</th><th>Categoría</th><th class="text-right">Presupuestado</th><th class="text-right">Real</th><th class="text-right">Diferencia</th></tr></thead>
+      <thead><tr>
+        <th style="width:36px">✓</th>
+        <th>Descripción</th>
+        <th>Categoría</th>
+        <th class="text-right">Presupuestado</th>
+        <th class="text-right">Abonado real</th>
+        <th class="text-right">Diferencia</th>
+        <th style="width:40px"></th>
+      </tr></thead>
       <tbody id="oblig-tbody"></tbody>
+      <tfoot><tr style="background:var(--surface2);font-weight:500">
+        <td colspan="3" style="padding:.875rem 1.5rem">TOTAL</td>
+        <td class="text-right" id="oblig-tot-presup" style="padding:.875rem 1.5rem;color:var(--danger)">$0</td>
+        <td class="text-right" id="oblig-tot-real" style="padding:.875rem 1.5rem;color:var(--success)">$0</td>
+        <td class="text-right" id="oblig-tot-diff" style="padding:.875rem 1.5rem">$0</td>
+        <td></td>
+      </tr></tfoot>
     </table>
   </div>
 </div>
@@ -2594,28 +2676,192 @@ function updateAhorroPlan(i,v){ahorroPlan[i]=parseFloat(v)||0;sd('ahorroPlan',ah
 // ================================================
 // OBLIGACIONES
 // ================================================
+// ================================================
+// OBLIGACIONES
+// ================================================
+// obligManual: [{id, desc, cat, presup, mes}]
+// obligState: {id: {pagado:bool, real:number}}  — persists across sessions
+let obligManual = ld('obligManual', []);
+let obligState  = ld('obligState', {});
+let obligDisponible = ld('obligDisponible', {});
+
+function saveObligDisponible(val){
+  obligDisponible[currentMonth] = parseFloat(val)||0;
+  sd('obligDisponible', obligDisponible);
+}
+
+function getObligItems(m){
+  // Auto items from tarjetas (per bank)
+  const tcMap = getTCMonthByBanco(m);
+  const autoTC = Object.entries(tcMap).map(([banco,v])=>({
+    id:'__tc__'+banco, desc:banco, cat:'Tarjetas', presup:v, auto:true
+  }));
+  // Auto items from gastos
+  const autoGas = gastos.filter(g=>!g._tcBanco).filter(g=>getGastoMontoEnMes(g,m)>0).map(g=>({
+    id:'__gas__'+g.id, desc:g.concepto+(g.repetir?' 🔁':''), cat:g.categoria,
+    presup:getGastoMontoEnMes(g,m), auto:true
+  }));
+  // Manual items for this month
+  const manual = obligManual.filter(o=>o.mes===m).map(o=>({...o, auto:false}));
+  return [...autoTC, ...autoGas, ...manual];
+}
+
 function renderObligaciones(){
-  const m=currentMonth;
-  document.getElementById('oblig-mes-title').textContent=MONTHS[m]+' 2026';
-  const tcMap=getTCMonthByBanco(m);
-  const oblig=[
-    ...Object.entries(tcMap).map(([banco,v])=>({desc:banco,cat:'Tarjetas',presup:v})),
-    ...gastos.filter(g=>dateToMonth(g.fecha)===m).map(g=>({desc:g.concepto,cat:g.categoria,presup:parseFloat(g.monto)})),
-  ];
-  const total=oblig.reduce((s,o)=>s+o.presup,0);
+  const m = currentMonth;
+  document.getElementById('oblig-mes-title').textContent = MONTHS[m]+' 2026';
+
+  const items = getObligItems(m);
+  const totPresup = items.reduce((s,o)=>s+o.presup,0);
+
+  // Compute pagado/pendiente
+  let totPagado=0, totPendiente=0;
+  items.forEach(o=>{
+    const st = obligState[o.id]||{};
+    const real = parseFloat(st.real)||0;
+    const pagado = !!st.pagado;
+    if(pagado) totPagado += real>0?real:o.presup;
+    else totPendiente += o.presup;
+  });
+  const pct = totPresup>0?Math.round(totPagado/totPresup*100):0;
+
+  // Stats
   document.getElementById('oblig-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Total a pagar</div><div class="stat-value expense">${fmt(total)}</div><div class="stat-sub">${MONTHS[m]} 2026</div></div>
-    <div class="stat-card"><div class="stat-label">Ítems</div><div class="stat-value">${oblig.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Tarjetas</div><div class="stat-value expense">${fmt(getTCMonth(m))}</div></div>
-    <div class="stat-card"><div class="stat-label">Gastos del mes</div><div class="stat-value expense">${fmt(getGasMonth(m))}</div></div>
+    <div class="stat-card"><div class="stat-label">Total obligaciones</div><div class="stat-value expense">${fmt(totPresup)}</div><div class="stat-sub">${MONTHS[m]} 2026</div></div>
+    <div class="stat-card"><div class="stat-label">✅ Pagado</div><div class="stat-value income">${fmt(totPagado)}</div></div>
+    <div class="stat-card"><div class="stat-label">⏳ Pendiente</div><div class="stat-value" style="color:var(--warn)">${fmt(totPendiente)}</div></div>
+    <div class="stat-card"><div class="stat-label">Ítems totales</div><div class="stat-value">${items.length}</div></div>
   `;
-  document.getElementById('oblig-tbody').innerHTML=oblig.map(o=>`
-    <tr>
-      <td><span class="dot dot-pending" style="display:inline-block"></span><span class="badge badge-orange">Pendiente</span></td>
-      <td class="fw-500">${o.desc}</td><td class="text-muted">${o.cat}</td>
-      <td class="text-right">${fmt(o.presup)}</td><td class="text-right text-muted">—</td><td class="text-right text-muted">—</td>
-    </tr>
-  `).join('');
+
+  // Donut
+  document.getElementById('oblig-pct-txt').textContent = pct+'%';
+  document.getElementById('oblig-tot-label').textContent = fmt(totPresup);
+  document.getElementById('oblig-pagado-label').textContent = fmt(totPagado);
+  document.getElementById('oblig-pend-label').textContent = fmt(totPendiente);
+  requestAnimationFrame(()=>drawRing('oblig-donut', pct, '#2d7a4f', '#e5e2dc', 14));
+
+  // Restore disponible input
+  const dispEl = document.getElementById('oblig-disponible');
+  if(dispEl) dispEl.value = obligDisponible[m]||'';
+
+  // Liquidez
+  renderObligLiquidez();
+
+  // Set of-mes to current
+  const ofMes = document.getElementById('of-mes');
+  if(ofMes) ofMes.value = String(m);
+
+  // Table
+  let totR=0, totD=0;
+  const rows = items.map(o=>{
+    const st = obligState[o.id]||{};
+    const pagado = !!st.pagado;
+    const real = parseFloat(st.real)||0;
+    const diff = pagado?(real>0?real:o.presup)-o.presup:0;
+    totR += pagado?(real>0?real:o.presup):0;
+    totD += pagado?diff:0;
+    const bg = pagado?'background:var(--success2)':'';
+    return`<tr style="${bg}">
+      <td style="padding:.75rem 1rem;text-align:center">
+        <input type="checkbox" ${pagado?'checked':''}
+          onchange="toggleObligPago('${o.id}',this.checked)"
+          style="width:18px;height:18px;cursor:pointer;accent-color:var(--success)">
+      </td>
+      <td class="fw-500" style="${pagado?'text-decoration:line-through;opacity:.7':''}">${o.desc}${o.auto?'':' <span style="font-size:.65rem;background:var(--surface3);border-radius:8px;padding:.1rem .35rem;color:var(--text3)">manual</span>'}</td>
+      <td style="font-size:.82rem;color:var(--text2)">${o.cat}</td>
+      <td class="text-right">${fmt(o.presup)}</td>
+      <td class="text-right">
+        <input type="number" value="${real||''}" placeholder="—"
+          onblur="saveObligReal('${o.id}',this.value)"
+          style="width:100px;text-align:right;border:1px solid var(--border);border-radius:6px;padding:.3rem .5rem;font-size:.82rem;background:var(--surface)">
+      </td>
+      <td class="text-right" style="color:${diff<0?'var(--danger)':diff>0?'var(--success)':'var(--text2)'}">
+        ${pagado?(diff>=0?'+':'')+fmt(diff):'—'}
+      </td>
+      <td style="padding:.5rem">
+        ${!o.auto?`<button class="del-btn" onclick="deleteObligManual('${o.id}')">✕</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('oblig-tbody').innerHTML = rows||'<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--text3)">Sin obligaciones este mes</td></tr>';
+  document.getElementById('oblig-tot-presup').textContent = fmt(totPresup);
+  document.getElementById('oblig-tot-real').textContent = fmt(totR);
+  document.getElementById('oblig-tot-diff').innerHTML = `<span style="color:${totD<=0?'var(--danger)':'var(--success)'}">${totD>=0?'+':''}${fmt(totD)}</span>`;
+}
+
+function renderObligLiquidez(){
+  const m = currentMonth;
+  const disp = parseFloat(document.getElementById('oblig-disponible')?.value)||0;
+  const items = getObligItems(m);
+  const pendiente = items.reduce((s,o)=>{
+    const st = obligState[o.id]||{};
+    return !!st.pagado?s:s+o.presup;
+  },0);
+  const resto = disp - pendiente;
+  const el = document.getElementById('oblig-liquidez-detail');
+  if(!el) return;
+  el.innerHTML=`
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <div style="display:flex;justify-content:space-between;font-size:.875rem">
+      <span style="color:var(--text2)">− Pendiente de pago</span>
+      <span style="color:var(--danger);font-weight:500">${fmt(pendiente)}</span>
+    </div>
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <div style="display:flex;justify-content:space-between;font-size:1rem;font-weight:600">
+      <span>${resto>=0?'✅ Te sobra':'⚠️ Te falta juntar'}</span>
+      <span style="color:${resto>=0?'var(--success)':'var(--danger)'};font-family:'Fraunces',serif;font-size:1.15rem}">${fmt(Math.abs(resto))}</span>
+    </div>
+    ${disp>0&&resto<0?`<div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">Necesitás juntar <strong style="color:var(--danger)">${fmt(Math.abs(resto))}</strong> más antes de fin de mes</div>`:''}
+    ${disp>0&&resto>=0?`<div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">Con esto podés cubrir todo y te quedan <strong style="color:var(--success)">${fmt(resto)}</strong> libres</div>`:''}
+  `;
+}
+
+function toggleObligPago(id, pagado){
+  if(!obligState[id]) obligState[id]={};
+  obligState[id].pagado = pagado;
+  sd('obligState', obligState);
+  renderObligaciones();
+}
+function saveObligReal(id, val){
+  if(!obligState[id]) obligState[id]={};
+  obligState[id].real = parseFloat(val)||0;
+  sd('obligState', obligState);
+  renderObligaciones();
+}
+function openObligForm(){
+  const f=document.getElementById('oblig-form');
+  f.style.display='block';
+  document.getElementById('of-mes').value=String(currentMonth);
+  document.getElementById('of-edit-id').textContent='';
+  ['of-desc','of-cat','of-presup'].forEach(id=>document.getElementById(id).value='');
+}
+function closeObligForm(){ document.getElementById('oblig-form').style.display='none'; }
+function saveObligManual(){
+  const desc=document.getElementById('of-desc').value.trim();
+  if(!desc){toast('⚠️ Escribí una descripción');return;}
+  const presup=parseFloat(document.getElementById('of-presup').value)||0;
+  const cat=document.getElementById('of-cat').value.trim()||'Otros';
+  const mes=parseInt(document.getElementById('of-mes').value)||currentMonth;
+  const editId=document.getElementById('of-edit-id').textContent;
+  if(editId){
+    const idx=obligManual.findIndex(o=>o.id===editId);
+    if(idx>=0) obligManual[idx]={...obligManual[idx],desc,cat,presup,mes};
+    toast('✅ Actualizado');
+  } else {
+    obligManual.push({id:genId(),desc,cat,presup,mes});
+    toast('✅ Obligación agregada');
+  }
+  sd('obligManual',obligManual);
+  closeObligForm();
+  renderObligaciones();
+}
+function deleteObligManual(id){
+  obligManual=obligManual.filter(o=>o.id!==id);
+  delete obligState[id];
+  sd('obligManual',obligManual);
+  sd('obligState',obligState);
+  renderObligaciones();
+  toast('🗑️ Eliminado');
 }
 
 // ================================================
