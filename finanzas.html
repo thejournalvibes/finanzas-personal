@@ -2505,33 +2505,15 @@ function renderGastosPresup(){
 
   // Only show gastos for the active month
   // Include repeated gastos that are active this month + non-repeated for this month
-  // Show manual gastos + TC summary rows
   const filtered=gastos.filter(g=>{
     if(g._tcBanco) return dateToMonth(g.fecha)===m && g.monto>0;
     if(g.repetir) return dateToMonth(g.fecha)<=m;
     return dateToMonth(g.fecha)===m;
   });
-  // Add TC consumos active this month as extra rows
-  const tcRows=consumos.filter(c=>{
-    const e=parseInt(c.primerMes)+parseInt(c.cuotas)-1;
-    return m>=parseInt(c.primerMes)&&m<=e;
-  }).map(c=>({
-    _tcConsumo:true, id:'tc_'+c.id,
-    concepto:`${c.banco} · ${c.desc||c.categoria}`,
-    categoria:c.categoria, tipo:'Tarjeta',
-    fecha:`2026-${String(m+1).padStart(2,'0')}-01`,
-    monto:toARS(c.monto,c.moneda),
-    moneda:c.moneda, montoOrig:c.monto,
-    cuotaN:m-parseInt(c.primerMes)+1, cuotas:c.cuotas
-  }));
-  const sorted=[...filtered,...tcRows].sort((a,b)=>{
-    if(a._tcBanco&&!b._tcBanco) return 1;
-    if(!a._tcBanco&&b._tcBanco) return -1;
-    return (a.fecha||'').localeCompare(b.fecha||'');
-  });
+  const sorted=[...filtered].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
 
   document.getElementById('gas-tbody').innerHTML=sorted.map(g=>{
-    const isTC=!!g._tcBanco||!!g._tcConsumo;
+    const isTC=!!g._tcBanco;
     const rowClass=isTC?'gas-row-tc':(g.tipo==='Fijo'?'gas-row-fijo':'gas-row-variable');
     const fechaStr=g.fecha?new Date(g.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'—';
     const tipoHtml=isTC
@@ -2558,10 +2540,8 @@ function renderGastosPresup(){
     </tr>`;
   }).join('');
 
-  // Footer total = manual gastos + TC cuotas del mes
-  const manualTotal=filtered.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
-  const tcTotal=getTCMonth(m);
-  document.getElementById('gas-total').textContent=fmt(manualTotal+tcTotal);
+  const totalGas=filtered.reduce((s,g)=>s+(g._tcBanco?g.monto:getGastoMontoEnMes(g,m)),0);
+  document.getElementById('gas-total').textContent=fmt(totalGas);
 }
 
 // ================================================
