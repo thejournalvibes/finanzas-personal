@@ -2220,11 +2220,7 @@ function renderOverview(){
   const cols=MONTHS.map((_,i)=>i);
   const colHeaders=cols.map(i=>`<th class="month-col">${MONTHS[i].slice(0,3)}</th>`).join('');
   const ingRow=cols.map(i=>`<td class="month-col" style="color:var(--success)">${fmt(getIngMonth(i))}</td>`).join('');
-  const egRow=cols.map(i=>{
-    const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,i),0);
-    const tcG=getTCMonth(i);
-    return`<td class="month-col" style="color:var(--danger)" title="Gastos manuales: ${fmt(manG)} | Tarjetas: ${fmt(tcG)}">${fmt(manG+tcG)}</td>`;
-  }).join('');
+  const egRow=cols.map(i=>`<td class="month-col" style="color:var(--danger)">${fmt(getTotalGastado(i))}</td>`).join('');
   const savRow=cols.map(i=>`<td class="month-col" style="color:var(--accent)">${fmt(getAhorroReal(i))}</td>`).join('');
   const balRow=cols.map(i=>{const b=getIngMonth(i)-getTotalGastado(i);return`<td class="month-col ${b>=0?'balance-pos':'balance-neg'}">${fmt(b)}</td>`;}).join('');
   const tI=cols.reduce((s,i)=>s+getIngMonth(i),0),tE=cols.reduce((s,i)=>s+getTotalGastado(i),0),tS=cols.reduce((s,i)=>s+getAhorroReal(i),0),tB=tI-tE;
