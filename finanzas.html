@@ -646,6 +646,18 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
           <button class="btn btn-ghost btn-sm" onclick="closeGasForm()">Cancelar</button>
           <span id="gas-edit-id" style="display:none"></span>
         </div>
+        <div style="padding:.75rem 1.5rem;background:var(--surface2);border-top:1px solid var(--border);display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.875rem">
+            <input type="checkbox" id="gas-repetir" style="accent-color:var(--accent);width:16px;height:16px" onchange="toggleRepetir()">
+            <span>🔁 Repetir todos los meses</span>
+          </label>
+          <div id="gas-repetir-opts" style="display:none;display:flex;align-items:center;gap:.75rem">
+            <label style="font-size:.82rem;color:var(--text2)">% aumento mensual:</label>
+            <input type="number" id="gas-pct-aumento" value="0" min="0" max="100" step="0.1"
+              style="width:80px;padding:.35rem .5rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.875rem">
+            <span style="font-size:.78rem;color:var(--text3)">0% = mismo monto todos los meses</span>
+          </div>
+        </div>
       </div>
       <table>
         <thead><tr><th>Concepto</th><th>Fecha</th><th>Tipo</th><th>Categoría</th><th class="text-right">Monto</th><th style="width:80px"></th></tr></thead>
@@ -1738,6 +1750,42 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div><!-- /import-results -->
 </div><!-- /page-importar -->
 
+<!-- EDIT CONSUMO MODAL -->
+<div class="modal-overlay" id="edit-consumo-modal" onclick="if(event.target===this)closeEditConsumo()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar consumo</span>
+      <button class="del-btn" onclick="closeEditConsumo()" style="font-size:1.1rem">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="padding:0">
+        <div class="form-group"><label>Descripción</label><input id="ec-desc" placeholder="Descripción"></div>
+        <div class="form-group"><label>Banco / Tarjeta</label><select id="ec-banco"></select></div>
+        <div class="form-group"><label>Centro de costo</label><select id="ec-centro"></select></div>
+        <div class="form-group"><label>Categoría</label><select id="ec-cat"></select></div>
+        <div class="form-group"><label>Fecha de compra</label><input type="date" id="ec-fecha"></div>
+        <div class="form-group"><label>Mes 1ra cuota</label>
+          <select id="ec-primer">
+            <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+            <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+            <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+            <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Moneda</label><select id="ec-moneda"><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+        <div class="form-group"><label>Monto por cuota</label><input type="number" id="ec-monto" placeholder="0"></div>
+        <div class="form-group"><label>Cantidad cuotas</label><input type="number" id="ec-cuotas" min="1" max="48"></div>
+        <div class="form-group"><label>Comentario</label><input id="ec-comentario" placeholder="Opcional..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditConsumo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditConsumo()">Guardar cambios</button>
+      <span id="ec-id" style="display:none"></span>
+    </div>
+  </div>
+</div>
+
 <!-- DEPOSIT MODAL -->
 <div class="modal-overlay" id="dep-modal" onclick="if(event.target===this)closeDepModal()">
   <div class="modal-box">
@@ -1845,10 +1893,24 @@ function getTCMonthByCat(m){const map={};consumos.forEach(c=>{const e=c.primerMe
 // NEW: ingresos/gastos filtered by month via fecha field
 function getIngMonth(m){return ingresos.filter(i=>dateToMonth(i.fecha)===m).reduce((s,i)=>s+parseFloat(i.monto||0),0);}
 // Exclude TC-linked rows from manual gastos total (they're already counted in getTCMonth)
-function getGasMonth(m){return gastos.filter(g=>dateToMonth(g.fecha)===m && !g._tcBanco).reduce((s,g)=>s+parseFloat(g.monto||0),0);}
+function getGasMonth(m){return gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);}
 // Total gastos including TC-linked (for presupuesto display totals)
 function getGasMonthAll(m){return gastos.filter(g=>dateToMonth(g.fecha)===m).reduce((s,g)=>s+parseFloat(g.monto||0),0);}
-function getTotalGastado(m){return getGasMonth(m)+getTCMonth(m);}
+function getGastoMontoEnMes(g,m){
+  const pm=dateToMonth(g.fecha);
+  if(!g.repetir) return pm===m?parseFloat(g.monto||0):0;
+  if(m<pm) return 0;
+  const offset=m-pm;
+  const pct=(parseFloat(g.pctAumento)||0)/100;
+  return parseFloat(g.monto||0)*Math.pow(1+pct,offset);
+}
+function getTotalGastado(m){
+  // TC gastos (auto-sync) use dateToMonth
+  const tcG=gastos.filter(g=>g._tcBanco&&dateToMonth(g.fecha)===m).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  // Manual gastos: use projection
+  const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
+  return manG+tcG+getTCMonth(m);
+}
 function getAhorroReal(m){return ahorroLines.filter(l=>l.mes===m).reduce((s,l)=>s+parseFloat(l.monto||0),0);}
 
 // ================================================
@@ -2257,6 +2319,10 @@ function openGasForm(editId){
     document.getElementById('gas-cat').value=item.categoria;
     document.getElementById('gas-monto').value=item.monto;
     document.getElementById('gas-edit-id').textContent=editId;
+    const repCb=document.getElementById('gas-repetir');
+    if(repCb){ repCb.checked=!!item.repetir; toggleRepetir(); }
+    const pctEl=document.getElementById('gas-pct-aumento');
+    if(pctEl) pctEl.value=item.pctAumento||0;
   } else {
     document.getElementById('gas-concepto').value='';
     document.getElementById('gas-fecha').valueAsDate=new Date();
@@ -2311,10 +2377,14 @@ function saveGasto(){
   const editId=document.getElementById('gas-edit-id').textContent;
   if(editId){
     const idx=gastos.findIndex(g=>g.id==editId);
-    if(idx>=0)gastos[idx]={...gastos[idx],concepto,fecha,tipo,categoria,monto};
+    const repetir=document.getElementById('gas-repetir').checked;
+    const pctAumento=parseFloat(document.getElementById('gas-pct-aumento').value)||0;
+    if(idx>=0)gastos[idx]={...gastos[idx],concepto,fecha,tipo,categoria,monto,repetir,pctAumento};
     toast('✅ Gasto actualizado');
   } else {
-    gastos.push({id:genId(),concepto,fecha,tipo,categoria,monto});
+    const repetir=document.getElementById('gas-repetir').checked;
+    const pctAumento=parseFloat(document.getElementById('gas-pct-aumento').value)||0;
+    gastos.push({id:genId(),concepto,fecha,tipo,categoria,monto,repetir,pctAumento});
     toast('✅ Gasto agregado');
   }
   sd('gastos',gastos);
@@ -2348,7 +2418,12 @@ function renderGastosPresup(){
   fillSelect('gas-tc-banco',bancos);
 
   // Only show gastos for the active month
-  const filtered=gastos.filter(g=>dateToMonth(g.fecha)===m);
+  // Include repeated gastos that are active this month + non-repeated for this month
+  const filtered=gastos.filter(g=>{
+    if(g._tcBanco) return dateToMonth(g.fecha)===m;
+    if(g.repetir) return dateToMonth(g.fecha)<=m;
+    return dateToMonth(g.fecha)===m;
+  });
   const sorted=[...filtered].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
 
   document.getElementById('gas-tbody').innerHTML=sorted.map(g=>{
@@ -2374,7 +2449,7 @@ function renderGastosPresup(){
       <td class="text-muted" style="font-size:.8rem">${fechaStr}</td>
       <td>${tipoHtml}</td>
       <td>${catChip(g.categoria)}</td>
-      <td class="text-right">${fmt(g.monto)}</td>
+      <td class="text-right">${fmt(getGastoMontoEnMes(g,currentMonth))}</td>
       <td>${actions}</td>
     </tr>`;
   }).join('');
@@ -2553,23 +2628,33 @@ function calcTCTotal(){const m=parseFloat(document.getElementById('tc-monto').va
 // ======= CONCILIAR =======
 var _concilChecked = {}; // key: banco__mes__consumoId -> bool
 
+var _concilLastBanco = '';
+var _concilLastMes = -1;
+
 function initConcilTab(){
-  // populate banco select
   var sel = document.getElementById('cc-banco');
   if(!sel) return;
   var bcos = [];
   consumos.forEach(function(c){ if(bcos.indexOf(c.banco)<0) bcos.push(c.banco); });
   bcos.sort();
   sel.innerHTML = bcos.map(function(b){ return '<option value="'+b+'">'+b+'</option>'; }).join('');
-  // set current month
+  // Restore last selection or use defaults
+  if(_concilLastBanco && bcos.indexOf(_concilLastBanco)>=0){
+    sel.value = _concilLastBanco;
+  }
   var mes = document.getElementById('cc-mes');
-  if(mes) mes.value = String(currentMonth);
+  if(mes){
+    mes.value = _concilLastMes >= 0 ? String(_concilLastMes) : String(currentMonth);
+  }
   loadConcilRows();
 }
 
 function loadConcilRows(){
   var banco = document.getElementById('cc-banco').value;
   var mes = parseInt(document.getElementById('cc-mes').value);
+  // Persist selection
+  _concilLastBanco = banco;
+  _concilLastMes = mes;
   var rows = document.getElementById('cc-rows');
   if(!rows) return;
 
@@ -2767,7 +2852,10 @@ function applyTCFilters(){
       <div style="font-size:.78rem;color:var(--text2)">${c.categoria}</div>
       <div style="text-align:right">${fmt(montoARS)}${isUSD?`<div style="font-size:.68rem;color:var(--warn)">u$s${c.monto} × $${getTCGlobal().toLocaleString('es-AR')}</div>`:''}<div style="font-size:.7rem;color:var(--text3)">${c.cuotas}x · ${MONTHS[c.primerMes]}</div></div>
       <div style="text-align:right;font-weight:500">${fmt(totalARS)}</div>
-      <div><button class="del-btn" onclick="deleteConsumo('${c.id}')">✕</button></div>
+      <div style="display:flex;gap:.3rem">
+        <button class="edit-btn" onclick="openEditConsumo('${c.id}')" title="Editar">✏️</button>
+        <button class="del-btn" onclick="deleteConsumo('${c.id}')" title="Eliminar">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -4240,8 +4328,12 @@ let emaFavor = ld('emaFavor',[
 function getTCByCentro(centro,m){
   return consumos.reduce((s,c)=>{
     if(c.centro!==centro) return s;
-    const e=c.primerMes+c.cuotas-1;
-    return m>=c.primerMes&&m<=e?s+parseFloat(c.monto||0):s;
+    const e=parseInt(c.primerMes)+parseInt(c.cuotas)-1;
+    if(m<parseInt(c.primerMes)||m>e) return s;
+    // Convert USD to ARS using TC global
+    const tc=parseFloat(document.getElementById('tc-global')?.value)||1;
+    const monto=(c.moneda==='USD')?parseFloat(c.monto||0)*tc:parseFloat(c.monto||0);
+    return s+monto;
   },0);
 }
 function getTCByCentroAllMonths(centro){
@@ -4294,19 +4386,31 @@ function renderEmaResumenTable(){
 
 function renderEmaTCTable(centro,tableId,pct){
   const cols=MONTHS.map((_,i)=>i);
-  const data=getTCByCentroAllMonths(centro).map(v=>v*pct);
+  const tc=parseFloat(document.getElementById('tc-global')?.value)||1;
+  
+  function montoARS(c){ return (c.moneda==='USD')?parseFloat(c.monto||0)*tc:parseFloat(c.monto||0); }
+  
+  const data=cols.map(m=>consumos.filter(c=>c.centro===centro).reduce((s,c)=>{
+    const e=parseInt(c.primerMes)+parseInt(c.cuotas)-1;
+    return m>=parseInt(c.primerMes)&&m<=e?s+montoARS(c)*pct:s;
+  },0));
   const total=data.reduce((s,v)=>s+v,0);
-  // Detalle de consumos por mes
+
   const detailRows=consumos.filter(c=>c.centro===centro).map(c=>{
+    const isUSD=c.moneda==='USD';
+    const mARS=montoARS(c);
     const cells=cols.map(m=>{
-      const e=c.primerMes+c.cuotas-1;
-      const val=m>=c.primerMes&&m<=e?parseFloat(c.monto||0)*pct:0;
+      const e=parseInt(c.primerMes)+parseInt(c.cuotas)-1;
+      const val=m>=parseInt(c.primerMes)&&m<=e?mARS*pct:0;
       return`<td class="month-col ${m===currentMonth?'mes-cell-active':''}" style="font-size:.78rem">${val>0?fmt(val):'—'}</td>`;
     }).join('');
-    return`<tr><td style="font-size:.8rem;padding:.5rem 1rem;white-space:nowrap">${c.banco} · ${c.desc||c.categoria}</td>${cells}<td class="month-col" style="font-size:.8rem;font-weight:500">${fmt(parseFloat(c.monto||0)*c.cuotas*pct)}</td></tr>`;
+    const usdNote=isUSD?`<span style="font-size:.65rem;background:#fff3cd;color:#856404;border-radius:8px;padding:.1rem .35rem;margin-left:.3rem">u$s${c.monto}×${tc.toLocaleString('es-AR')}</span>`:'';
+    const totalFila=mARS*parseInt(c.cuotas)*pct;
+    return`<tr><td style="font-size:.8rem;padding:.5rem 1rem;white-space:nowrap">${c.banco} · ${c.desc||c.categoria}${usdNote}</td>${cells}<td class="month-col" style="font-size:.8rem;font-weight:500">${fmt(totalFila)}</td></tr>`;
   }).join('');
+
   const colH=cols.map(i=>`<th class="month-col ${i===currentMonth?'mes-cell-active':''}">${MONTHS[i].slice(0,3)}</th>`).join('');
-  const totCells=cols.map((i)=>`<td class="month-col ${i===currentMonth?'mes-cell-active':''}" style="color:var(--accent);font-weight:600">${fmt(data[i])}</td>`).join('');
+  const totCells=cols.map(i=>`<td class="month-col ${i===currentMonth?'mes-cell-active':''}" style="color:var(--accent);font-weight:600">${fmt(data[i])}</td>`).join('');
   document.getElementById(tableId).innerHTML=`
     <thead><tr><th style="min-width:220px">Consumo</th>${colH}<th class="month-col">Total</th></tr></thead>
     <tbody>${detailRows||`<tr><td colspan="${cols.length+2}" style="text-align:center;padding:1.5rem;color:var(--text3)">Sin consumos con centro "${centro}" todavía</td></tr>`}</tbody>
@@ -4314,7 +4418,6 @@ function renderEmaTCTable(centro,tableId,pct){
   `;
 }
 
-// Servicios CRUD
 function openEmaServForm(editId){
   const f=document.getElementById('ema-serv-form');f.style.display='block';
   if(editId){
@@ -4826,6 +4929,51 @@ function exportEmaExcel(){
   const fecha=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-');
   XLSX.writeFile(wb,`Ema_Resumen_${fecha}.xlsx`,{bookType:'xlsx',type:'binary',cellStyles:true});
   toast('✅ Excel descargado · una sola hoja con todo el detalle');
+}
+
+// ---- EDIT CONSUMO ----
+function openEditConsumo(id){
+  const c=consumos.find(x=>x.id===id); if(!c)return;
+  fillSelect('ec-banco',bancos);
+  fillSelect('ec-centro',centros);
+  fillSelect('ec-cat',catTC);
+  document.getElementById('ec-id').textContent=id;
+  document.getElementById('ec-desc').value=c.desc||'';
+  document.getElementById('ec-banco').value=c.banco||'';
+  document.getElementById('ec-centro').value=c.centro||'';
+  document.getElementById('ec-cat').value=c.categoria||'';
+  document.getElementById('ec-fecha').value=c.fecha||'';
+  document.getElementById('ec-primer').value=String(c.primerMes||0);
+  document.getElementById('ec-moneda').value=c.moneda||'ARS';
+  document.getElementById('ec-monto').value=c.monto||0;
+  document.getElementById('ec-cuotas').value=c.cuotas||1;
+  document.getElementById('ec-comentario').value=c.comentario||'';
+  document.getElementById('edit-consumo-modal').classList.add('open');
+}
+function closeEditConsumo(){
+  document.getElementById('edit-consumo-modal').classList.remove('open');
+}
+function saveEditConsumo(){
+  const id=document.getElementById('ec-id').textContent;
+  const idx=consumos.findIndex(x=>x.id===id); if(idx<0)return;
+  consumos[idx]={
+    ...consumos[idx],
+    desc:document.getElementById('ec-desc').value.trim(),
+    banco:document.getElementById('ec-banco').value,
+    centro:document.getElementById('ec-centro').value,
+    categoria:document.getElementById('ec-cat').value,
+    fecha:document.getElementById('ec-fecha').value,
+    primerMes:parseInt(document.getElementById('ec-primer').value)||0,
+    moneda:document.getElementById('ec-moneda').value,
+    monto:parseFloat(document.getElementById('ec-monto').value)||0,
+    cuotas:parseInt(document.getElementById('ec-cuotas').value)||1,
+    comentario:document.getElementById('ec-comentario').value.trim(),
+  };
+  sd('consumos',consumos);
+  closeEditConsumo();
+  syncTCGastos();
+  applyTCFilters();
+  toast('✅ Consumo actualizado');
 }
 
 // ================================================
