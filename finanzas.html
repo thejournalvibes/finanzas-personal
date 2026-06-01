@@ -2540,7 +2540,8 @@ function renderGastosPresup(){
     </tr>`;
   }).join('');
 
-  const totalGas=filtered.reduce((s,g)=>s+(g._tcBanco?g.monto:getGastoMontoEnMes(g,m)),0);
+  const manualGasTotal=filtered.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
+  const totalGas=manualGasTotal+getTCMonth(m);
   document.getElementById('gas-total').textContent=fmt(totalGas);
 }
 
