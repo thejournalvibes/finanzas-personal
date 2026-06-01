@@ -2541,10 +2541,8 @@ function renderGastosPresup(){
     </tr>`;
   }).join('');
 
-  // Footer total = manual gastos + TC-linked rows (already in gastos) + any remaining TC not yet added
-  const linkedBancos=new Set(sorted.filter(g=>g._tcBanco).map(g=>g._tcBanco));
-  const unlinkedTC=Object.entries(getTCMonthByBanco(m)).filter(([b])=>!linkedBancos.has(b)).reduce((s,[,v])=>s+v,0);
-  const totalGas=getGasMonthAll(m)+unlinkedTC;
+  // Footer total = only what's visible in the list (manual gastos for this month)
+  const totalGas=filtered.reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
   document.getElementById('gas-total').textContent=fmt(totalGas);
 }
 
