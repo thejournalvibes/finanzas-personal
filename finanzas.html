@@ -1989,9 +1989,11 @@ function getGastoMontoEnMes(g,m){
   return parseFloat(g.monto||0)*Math.pow(1+pct,offset);
 }
 function getTotalGastado(m){
-  // Manual gastos only (not TC-linked ones which are counted via getTCMonth)
+  // Exactly what the Gastos tab shows:
+  // manual gastos (with projection) + _tcBanco rows manually added by user
   const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
-  return manG+getTCMonth(m);
+  const tcG=gastos.filter(g=>g._tcBanco&&dateToMonth(g.fecha)===m&&g.monto>0).reduce((s,g)=>s+g.monto,0);
+  return manG+tcG;
 }
 function getAhorroReal(m){return ahorroLines.filter(l=>l.mes===m).reduce((s,l)=>s+parseFloat(l.monto||0),0);}
 
@@ -2540,8 +2542,8 @@ function renderGastosPresup(){
     </tr>`;
   }).join('');
 
-  const manualGasTotal=filtered.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
-  const totalGas=manualGasTotal+getTCMonth(m);
+  const totalGas=filtered.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0)
+    + filtered.filter(g=>g._tcBanco).reduce((s,g)=>s+g.monto,0);
   document.getElementById('gas-total').textContent=fmt(totalGas);
 }
 
