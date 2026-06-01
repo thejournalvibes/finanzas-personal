@@ -1975,7 +1975,9 @@ function getTCMonthByCat(m){const map={};consumos.forEach(c=>{const e=c.primerMe
 // NEW: ingresos/gastos filtered by month via fecha field
 function getIngMonth(m){return ingresos.filter(i=>dateToMonth(i.fecha)===m).reduce((s,i)=>s+parseFloat(i.monto||0),0);}
 // Exclude TC-linked rows from manual gastos total (they're already counted in getTCMonth)
-function getGasMonth(m){return gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);}
+function getGasMonth(m){
+  return gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
+}
 // Total gastos including TC-linked (for presupuesto display totals)
 function getGasMonthAll(m){return gastos.filter(g=>dateToMonth(g.fecha)===m).reduce((s,g)=>s+parseFloat(g.monto||0),0);}
 function getGastoMontoEnMes(g,m){
@@ -1987,11 +1989,9 @@ function getGastoMontoEnMes(g,m){
   return parseFloat(g.monto||0)*Math.pow(1+pct,offset);
 }
 function getTotalGastado(m){
-  // TC gastos (auto-sync) use dateToMonth
-  const tcG=gastos.filter(g=>g._tcBanco&&dateToMonth(g.fecha)===m).reduce((s,g)=>s+parseFloat(g.monto||0),0);
-  // Manual gastos: use projection
+  // Manual gastos only (not TC-linked ones which are counted via getTCMonth)
   const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
-  return manG+tcG+getTCMonth(m);
+  return manG+getTCMonth(m);
 }
 function getAhorroReal(m){return ahorroLines.filter(l=>l.mes===m).reduce((s,l)=>s+parseFloat(l.monto||0),0);}
 
@@ -2218,7 +2218,11 @@ function renderOverview(){
   const cols=MONTHS.map((_,i)=>i);
   const colHeaders=cols.map(i=>`<th class="month-col">${MONTHS[i].slice(0,3)}</th>`).join('');
   const ingRow=cols.map(i=>`<td class="month-col" style="color:var(--success)">${fmt(getIngMonth(i))}</td>`).join('');
-  const egRow=cols.map(i=>`<td class="month-col" style="color:var(--danger)">${fmt(getTotalGastado(i))}</td>`).join('');
+  const egRow=cols.map(i=>{
+    const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,i),0);
+    const tcG=getTCMonth(i);
+    return`<td class="month-col" style="color:var(--danger)" title="Gastos manuales: ${fmt(manG)} | Tarjetas: ${fmt(tcG)}">${fmt(manG+tcG)}</td>`;
+  }).join('');
   const savRow=cols.map(i=>`<td class="month-col" style="color:var(--accent)">${fmt(getAhorroReal(i))}</td>`).join('');
   const balRow=cols.map(i=>{const b=getIngMonth(i)-getTotalGastado(i);return`<td class="month-col ${b>=0?'balance-pos':'balance-neg'}">${fmt(b)}</td>`;}).join('');
   const tI=cols.reduce((s,i)=>s+getIngMonth(i),0),tE=cols.reduce((s,i)=>s+getTotalGastado(i),0),tS=cols.reduce((s,i)=>s+getAhorroReal(i),0),tB=tI-tE;
@@ -2501,8 +2505,9 @@ function renderGastosPresup(){
 
   // Only show gastos for the active month
   // Include repeated gastos that are active this month + non-repeated for this month
+  // Only show manual gastos (not TC-auto ones which show in Tarjetas tab)
   const filtered=gastos.filter(g=>{
-    if(g._tcBanco) return dateToMonth(g.fecha)===m;
+    if(g._tcBanco) return false;
     if(g.repetir) return dateToMonth(g.fecha)<=m;
     return dateToMonth(g.fecha)===m;
   });
