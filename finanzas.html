@@ -1989,11 +1989,13 @@ function getGastoMontoEnMes(g,m){
   return parseFloat(g.monto||0)*Math.pow(1+pct,offset);
 }
 function getTotalGastado(m){
-  // Exactly what the Gastos tab shows:
-  // manual gastos (with projection) + _tcBanco rows manually added by user
-  const manG=gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
-  const tcG=gastos.filter(g=>g._tcBanco&&dateToMonth(g.fecha)===m&&g.monto>0).reduce((s,g)=>s+g.monto,0);
-  return manG+tcG;
+  const f=gastos.filter(g=>{
+    if(g._tcBanco) return dateToMonth(g.fecha)===m && g.monto>0;
+    if(g.repetir) return dateToMonth(g.fecha)<=m;
+    return dateToMonth(g.fecha)===m;
+  });
+  return f.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0)
+       + f.filter(g=>g._tcBanco).reduce((s,g)=>s+g.monto,0);
 }
 function getAhorroReal(m){return ahorroLines.filter(l=>l.mes===m).reduce((s,l)=>s+parseFloat(l.monto||0),0);}
 
@@ -2221,7 +2223,7 @@ function renderOverview(){
   const colHeaders=cols.map(i=>`<th class="month-col">${MONTHS[i].slice(0,3)}</th>`).join('');
   const ingRow=cols.map(i=>`<td class="month-col" style="color:var(--success)">${fmt(getIngMonth(i))}</td>`).join('');
   const egRow=cols.map(i=>`<td class="month-col" style="color:var(--danger)">${fmt(getTotalGastado(i))}</td>`).join('');
-  const savRow=cols.map(i=>`<td class="month-col" style="color:var(--accent)">${fmt(getAhorroReal(i))}</td>`).join('');
+  const savRow=cols.map(i=>`<td class="month-col" style="color:var(--accent)">${fmt(savGetTotalReal(i))}</td>`).join('');
   const balRow=cols.map(i=>{const b=getIngMonth(i)-getTotalGastado(i);return`<td class="month-col ${b>=0?'balance-pos':'balance-neg'}">${fmt(b)}</td>`;}).join('');
   const tI=cols.reduce((s,i)=>s+getIngMonth(i),0),tE=cols.reduce((s,i)=>s+getTotalGastado(i),0),tS=cols.reduce((s,i)=>s+getAhorroReal(i),0),tB=tI-tE;
   document.getElementById('overview-table').innerHTML=`
