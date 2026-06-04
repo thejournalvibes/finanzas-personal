@@ -1171,17 +1171,21 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <div class="form-grid">
           <div class="form-group"><label>Fecha</label><input type="date" id="mf-fecha"></div>
           <div class="form-group"><label>Tipo</label>
-            <select id="mf-tipo" onchange="updateMovTipoColor()">
+            <select id="mf-tipo" onchange="onMovTipoChange()">
               <option value="ingreso">💰 Ingreso</option>
               <option value="egreso">💸 Egreso</option>
-              <option value="transferencia">↔️ Transferencia</option>
+              <option value="transferencia">↔️ Transferencia entre cuentas</option>
             </select>
+          </div>
+          <div class="form-group" id="mf-destino-group" style="display:none">
+            <label>Banco destino (recibe)</label>
+            <select id="mf-banco-destino"></select>
           </div>
           <div class="form-group"><label>Descripción</label><input id="mf-desc" placeholder="Ej: Sueldo mayo, Supermercado..."></div>
           <div class="form-group"><label>Categoría</label>
             <select id="mf-cat"></select>
           </div>
-          <div class="form-group"><label>Banco / Origen</label><select id="mf-banco"></select></div>
+          <div class="form-group"><label id="mf-banco-label">Banco / Cuenta</label><select id="mf-banco"></select></div>
           <div class="form-group"><label>Monto ($)</label><input type="number" id="mf-monto" placeholder="0"></div>
           <div class="form-group"><label>Método de pago</label>
             <select id="mf-metodo"><option>Débito</option><option>Transferencia</option><option>Efectivo</option><option>Crédito</option><option>QR</option></select>
@@ -1831,6 +1835,44 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 
   </div><!-- /import-results -->
 </div><!-- /page-importar -->
+
+<!-- PAGO OBLIGACION MODAL -->
+<div class="modal-overlay" id="pago-oblig-modal" onclick="if(event.target===this)closePagoObligModal()">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">✅ Registrar pago — <span id="pom-titulo" style="color:var(--success)"></span></span>
+      <button class="del-btn" onclick="closePagoObligModal()" style="font-size:1.1rem">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Fecha de pago</label>
+        <input type="date" id="pom-fecha">
+      </div>
+      <div class="form-group">
+        <label>Banco / Cuenta desde donde pagás</label>
+        <select id="pom-banco"></select>
+      </div>
+      <div class="form-group">
+        <label>Monto abonado ($)</label>
+        <input type="number" id="pom-monto" placeholder="0" style="font-size:1rem">
+      </div>
+      <div class="form-group">
+        <label>Método</label>
+        <select id="pom-metodo">
+          <option>Débito</option><option>Transferencia</option>
+          <option>Efectivo</option><option>Crédito</option>
+        </select>
+      </div>
+      <p style="font-size:.78rem;color:var(--text3);margin:0">El pago se registrará automáticamente en Flujo de fondos → Movimientos.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePagoObligModal()">Cancelar</button>
+      <button class="btn btn-primary" style="background:var(--success)" onclick="confirmPagoOblig()">✅ Confirmar pago</button>
+    </div>
+    <span id="pom-oblig-id" style="display:none"></span>
+    <span id="pom-presup" style="display:none"></span>
+  </div>
+</div>
 
 <!-- EDIT CONSUMO MODAL -->
 <div class="modal-overlay" id="edit-consumo-modal" onclick="if(event.target===this)closeEditConsumo()">
@@ -2819,10 +2861,66 @@ function renderObligLiquidez(){
 }
 
 function toggleObligPago(id, pagado){
-  if(!obligState[id]) obligState[id]={};
-  obligState[id].pagado = pagado;
-  sd('obligState', obligState);
+  if(!pagado){
+    // Unticking — just mark as unpaid
+    if(!obligState[id]) obligState[id]={};
+    obligState[id].pagado = false;
+    sd('obligState', obligState);
+    renderObligaciones();
+    return;
+  }
+  // Ticking — open modal to capture payment details
+  const items = getObligItems(currentMonth);
+  const item = items.find(o=>o.id===id);
+  if(!item){ return; }
+  document.getElementById('pom-oblig-id').textContent = id;
+  document.getElementById('pom-titulo').textContent = item.desc;
+  document.getElementById('pom-presup').textContent = item.presup;
+  document.getElementById('pom-monto').value = item.presup || '';
+  document.getElementById('pom-fecha').valueAsDate = new Date();
+  // Fill banco select
+  const bs = document.getElementById('pom-banco');
+  bs.innerHTML = ffBancos.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+  document.getElementById('pago-oblig-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('pom-monto').focus(), 100);
+}
+function closePagoObligModal(){
+  document.getElementById('pago-oblig-modal').classList.remove('open');
+  // Uncheck the checkbox since user cancelled
   renderObligaciones();
+}
+function confirmPagoOblig(){
+  const id = document.getElementById('pom-oblig-id').textContent;
+  const monto = parseFloat(document.getElementById('pom-monto').value)||0;
+  const fecha = document.getElementById('pom-fecha').value;
+  const bancoId = document.getElementById('pom-banco').value;
+  const metodo = document.getElementById('pom-metodo').value;
+  if(!monto){ toast('⚠️ Ingresá un monto'); return; }
+  if(!fecha){ toast('⚠️ Seleccioná una fecha'); return; }
+  // Get item info
+  const items = getObligItems(currentMonth);
+  const item = items.find(o=>o.id===id);
+  // 1. Save oblig state
+  if(!obligState[id]) obligState[id]={};
+  obligState[id].pagado = true;
+  obligState[id].real = monto;
+  sd('obligState', obligState);
+  // 2. Auto-register in ffMovs
+  ffMovs.push({
+    id: genId(),
+    fecha,
+    tipo: 'egreso',
+    desc: (item ? item.desc : 'Obligación') + ' — pago',
+    categoria: item ? item.cat : 'Otros',
+    bancoId,
+    monto,
+    metodo,
+    notas: 'Registrado desde Obligaciones'
+  });
+  sd('ffMovs', ffMovs);
+  closePagoObligModal();
+  renderObligaciones();
+  toast('✅ Pago registrado y volcado a Flujo de fondos');
 }
 function saveObligReal(id, val){
   if(!obligState[id]) obligState[id]={};
@@ -3315,9 +3413,35 @@ function updateSaldoReal(bancoId, val){
 }
 function updateSaldoInicial(bancoId, val){
   const b=ffBancos.find(b=>b.id===bancoId); if(!b)return;
-  b.saldoInicial=parseFloat(val)||0;
+  const oldVal=b.saldoInicial||0;
+  const newVal=parseFloat(val)||0;
+  b.saldoInicial=newVal;
   sd('ffBancos',ffBancos);
+  // Auto-register in ffMovs as ingreso if value changed and > 0
+  if(newVal>0 && newVal!==oldVal){
+    // Remove old saldo-inicial entry for this bank if exists
+    ffMovs=ffMovs.filter(m=>m._saldoIniId!==bancoId);
+    // Add new one
+    const fecha=`2026-${String(currentMonth+1).padStart(2,'0')}-01`;
+    ffMovs.push({
+      id:genId(),
+      fecha,
+      tipo:'ingreso',
+      desc:`Saldo inicial — ${b.nombre}`,
+      categoria:'Saldo inicial',
+      bancoId,
+      monto:newVal,
+      metodo:'',
+      notas:'Cargado automáticamente desde saldo inicial',
+      _saldoIniId:bancoId
+    });
+    sd('ffMovs',ffMovs);
+  } else if(newVal===0){
+    ffMovs=ffMovs.filter(m=>m._saldoIniId!==bancoId);
+    sd('ffMovs',ffMovs);
+  }
   renderFFConcilOnly();
+  renderFFMovs();
 }
 function renderFFConcilOnly(){
   // Refresh stats + concil table without touching the cards (preserves focus)
@@ -3407,6 +3531,9 @@ function openMovForm(editId){
   fillSelect('mf-cat',allCats);
   const bs=document.getElementById('mf-banco');
   if(bs) bs.innerHTML=ffBancos.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+  const bd=document.getElementById('mf-banco-destino');
+  if(bd) bd.innerHTML=ffBancos.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+  onMovTipoChange();
   if(editId){
     const mv=ffMovs.find(m=>m.id===editId); if(!mv)return;
     document.getElementById('mf-fecha').value=mv.fecha||'';
@@ -3432,7 +3559,24 @@ function closeMovForm(){
 }
 function toggleMovForm(){ const f=document.getElementById('mov-form'); if(f.style.display==='none') openMovForm(); else closeMovForm(); }
 function editMov(id){ openMovForm(id); }
-function updateMovTipoColor(){}
+function onMovTipoChange(){
+  const tipo = document.getElementById('mf-tipo').value;
+  const destGrp = document.getElementById('mf-destino-group');
+  const bancoLabel = document.getElementById('mf-banco-label');
+  const catGrp = document.getElementById('mf-cat').closest('.form-group');
+  if(tipo==='transferencia'){
+    if(destGrp) destGrp.style.display='block';
+    if(bancoLabel) bancoLabel.textContent='Banco origen (sale de)';
+    // Fill destino select
+    const bd = document.getElementById('mf-banco-destino');
+    if(bd) bd.innerHTML = ffBancos.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+    if(catGrp) catGrp.style.display='none';
+  } else {
+    if(destGrp) destGrp.style.display='none';
+    if(bancoLabel) bancoLabel.textContent='Banco / Cuenta';
+    if(catGrp) catGrp.style.display='block';
+  }
+}
 function saveMov(){
   const fecha=document.getElementById('mf-fecha').value;
   const tipo=document.getElementById('mf-tipo').value;
@@ -3450,6 +3594,19 @@ function saveMov(){
     const idx=ffMovs.findIndex(m=>m.id===editId);
     if(idx>=0) ffMovs[idx]={...ffMovs[idx],fecha,tipo,desc,categoria,bancoId,monto,metodo,notas};
     toast('✅ Movimiento actualizado');
+  } else if(tipo==='transferencia'){
+    // Create egreso from origen + ingreso to destino
+    const bancoDestId = document.getElementById('mf-banco-destino')?.value||'';
+    const bOrig = ffBancos.find(b=>b.id===bancoId);
+    const bDest = ffBancos.find(b=>b.id===bancoDestId);
+    const tId = genId();
+    ffMovs.push({id:tId, fecha, tipo:'egreso', desc:desc||`Transferencia a ${bDest?.nombre||'cuenta'}`,
+      categoria:'Transferencia', bancoId, monto, metodo, notas, _transferId:tId});
+    if(bancoDestId){
+      ffMovs.push({id:genId(), fecha, tipo:'ingreso', desc:desc||`Transferencia desde ${bOrig?.nombre||'cuenta'}`,
+        categoria:'Transferencia', bancoId:bancoDestId, monto, metodo, notas, _transferId:tId});
+    }
+    toast('✅ Transferencia registrada en ambas cuentas');
   } else {
     ffMovs.push({id:genId(),fecha,tipo,desc,categoria,bancoId,monto,metodo,notas});
     toast('✅ Movimiento registrado');
@@ -5521,7 +5678,9 @@ function checkAuth(){
   }
 }
 
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDepModal(); });
+document.addEventListener('keydown',e=>{ 
+  if(e.key==='Escape'){ closeDepModal(); closePagoObligModal(); }
+});
 document.getElementById('globalMonth').value=currentMonth;
 
 // Load saved TC global
