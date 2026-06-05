@@ -1028,8 +1028,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <button class="filter-clear" onclick="clearTCFilters()">✕ Limpiar</button>
         <span class="filter-count" id="f-count"></span>
       </div>
-      <div class="cuota-row cuota-header">
-        <span>Descripción</span><span>Banco</span><span>Categoría</span>
+      <div class="cuota-row cuota-header" style="grid-template-columns:2fr 110px 130px 120px 100px 80px">
+        <span>Descripción</span><span>Fecha</span><span>Banco</span><span>Categoría</span>
         <span style="text-align:right">Cuota $</span><span style="text-align:right">Total</span><span></span>
       </div>
       <div id="tc-list"></div>
@@ -2053,10 +2053,8 @@ function showPage(id){
 function onMonthChange(){
   currentMonth=parseInt(document.getElementById('globalMonth').value);
   // Update tarjetas filter if visible
-  const fd=document.getElementById('f-desde');
-  const fh=document.getElementById('f-hasta');
-  if(fd) fd.value=String(currentMonth);
-  if(fh) fh.value=String(currentMonth);
+  const fm=document.getElementById('f-mes');
+  if(fm) fm.value=String(currentMonth);
   // Update conciliar mes if visible
   const cm=document.getElementById('cc-mes');
   if(cm){ cm.value=String(currentMonth); }
@@ -2097,11 +2095,8 @@ function switchTCTab(tabId){
   document.querySelectorAll('#page-tarjetas .tabs .tab').forEach((b,i)=>b.classList.toggle('active',ids[i]===tabId));
   if(tabId==='tab-tc-lista'){
     buildTCFilterOptions();
-    // Auto-filter to current month
-    const fd=document.getElementById('f-desde');
-    const fh=document.getElementById('f-hasta');
-    if(fd) fd.value=String(currentMonth);
-    if(fh) fh.value=String(currentMonth);
+    const fm=document.getElementById('f-mes');
+    if(fm) fm.value=String(currentMonth);
     applyTCFilters();
   }
   if(tabId==='tab-tc-resumen') renderTCResumen();
@@ -2760,7 +2755,7 @@ function renderObligaciones(){
   // Compute pagado/pendiente
   let totPagado=0, totPendiente=0;
   items.forEach(o=>{
-    const st = obligState[o.id]||{};
+    const st = obligState[o.id+'__'+m]||{};
     const real = parseFloat(st.real)||0;
     const pagado = !!st.pagado;
     if(pagado) totPagado += real>0?real:o.presup;
@@ -2797,7 +2792,7 @@ function renderObligaciones(){
   // Table
   let totR=0, totD=0;
   const rows = items.map(o=>{
-    const st = obligState[o.id]||{};
+    const st = obligState[o.id+'__'+m]||{};
     const pagado = !!st.pagado;
     const real = parseFloat(st.real)||0;
     const diff = pagado?(real>0?real:o.presup)-o.presup:0;
@@ -2838,7 +2833,7 @@ function renderObligLiquidez(){
   const disp = parseFloat(document.getElementById('oblig-disponible')?.value)||0;
   const items = getObligItems(m);
   const pendiente = items.reduce((s,o)=>{
-    const st = obligState[o.id]||{};
+    const st = obligState[o.id+'__'+m]||{};
     return !!st.pagado?s:s+o.presup;
   },0);
   const resto = disp - pendiente;
@@ -2860,11 +2855,12 @@ function renderObligLiquidez(){
   `;
 }
 
+function getObligKey(id){ return id+'__'+currentMonth; }
 function toggleObligPago(id, pagado){
+  const key=getObligKey(id);
   if(!pagado){
-    // Unticking — just mark as unpaid
-    if(!obligState[id]) obligState[id]={};
-    obligState[id].pagado = false;
+    if(!obligState[key]) obligState[key]={};
+    obligState[key].pagado = false;
     sd('obligState', obligState);
     renderObligaciones();
     return;
@@ -2901,9 +2897,10 @@ function confirmPagoOblig(){
   const items = getObligItems(currentMonth);
   const item = items.find(o=>o.id===id);
   // 1. Save oblig state
-  if(!obligState[id]) obligState[id]={};
-  obligState[id].pagado = true;
-  obligState[id].real = monto;
+  const stKey=getObligKey(id);
+  if(!obligState[stKey]) obligState[stKey]={};
+  obligState[stKey].pagado = true;
+  obligState[stKey].real = monto;
   sd('obligState', obligState);
   // 2. Auto-register in ffMovs
   ffMovs.push({
@@ -2923,8 +2920,9 @@ function confirmPagoOblig(){
   toast('✅ Pago registrado y volcado a Flujo de fondos');
 }
 function saveObligReal(id, val){
-  if(!obligState[id]) obligState[id]={};
-  obligState[id].real = parseFloat(val)||0;
+  const key=getObligKey(id);
+  if(!obligState[key]) obligState[key]={};
+  obligState[key].real = parseFloat(val)||0;
   sd('obligState', obligState);
   renderObligaciones();
 }
@@ -3132,20 +3130,18 @@ function getFilteredConsumos(){
   const banco=document.getElementById('f-banco')?.value||'';
   const centro=document.getElementById('f-centro')?.value||'';
   const cat=document.getElementById('f-cat')?.value||'';
-  const desde=document.getElementById('f-desde')?.value;
-  const hasta=document.getElementById('f-hasta')?.value;
+  const mesFilter=document.getElementById('f-mes')?.value;
   const desc=(document.getElementById('f-desc')?.value||'').toLowerCase().trim();
-  const desdeInt=desde!==''&&desde!==undefined&&desde!==null?parseInt(desde):null;
-  const hastaInt=hasta!==''&&hasta!==undefined&&hasta!==null?parseInt(hasta):null;
+  const mesInt=mesFilter!==''&&mesFilter!==undefined?parseInt(mesFilter):null;
   return consumos.filter(c=>{
     if(banco&&c.banco!==banco)return false;
     if(centro&&c.centro!==centro)return false;
     if(cat&&c.categoria!==cat)return false;
-    // Filter by whether the consumo has a cuota active in the selected month range
-    const pm=parseInt(c.primerMes)||0;
-    const lastMes=pm+(parseInt(c.cuotas)||1)-1;
-    if(desdeInt!==null&&lastMes<desdeInt)return false; // finished before desde
-    if(hastaInt!==null&&pm>hastaInt)return false; // starts after hasta
+    if(mesInt!==null){
+      const pm=parseInt(c.primerMes)||0;
+      const lastMes=pm+(parseInt(c.cuotas)||1)-1;
+      if(mesInt<pm||mesInt>lastMes)return false;
+    }
     if(desc&&!(c.desc||'').toLowerCase().includes(desc)&&!(c.categoria||'').toLowerCase().includes(desc))return false;
     return true;
   });
@@ -3207,7 +3203,7 @@ function applyTCFilters(){
 }
 
 function clearTCFilters(){
-  ['f-banco','f-centro','f-cat','f-desde','f-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['f-banco','f-centro','f-cat','f-mes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const fd=document.getElementById('f-desc');if(fd)fd.value='';
   applyTCFilters();
 }
