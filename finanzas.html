@@ -541,6 +541,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <button class="tab" onclick="switchPresupTab('tab-p-ing')">Ingresos</button>
     <button class="tab" onclick="switchPresupTab('tab-p-gas')">Gastos</button>
     <button class="tab" onclick="switchPresupTab('tab-p-ahorros')">Ahorros</button>
+    <button class="tab" onclick="switchPresupTab('tab-p-tarjetas')">💳 Tarjetas</button>
   </div>
 
   <!-- TAB CUADRO RESUMEN -->
@@ -2122,13 +2123,14 @@ function renderPage(id){
   if(id==='regalos')renderRegalos();
 }
 function switchPresupTab(tabId){
-  const ids=['tab-p-overview','tab-p-ing','tab-p-gas','tab-p-ahorros'];
+  const ids=['tab-p-overview','tab-p-ing','tab-p-gas','tab-p-ahorros','tab-p-tarjetas'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el){el.classList.toggle('active',id===tabId);el.style.display=id===tabId?'block':'none';}});
   document.querySelectorAll('#presup-tabs .tab').forEach((b,i)=>b.classList.toggle('active',ids[i]===tabId));
   if(tabId==='tab-p-overview')renderOverview();
   if(tabId==='tab-p-ing')renderIngresos();
   if(tabId==='tab-p-gas')renderGastosPresup();
   if(tabId==='tab-p-ahorros')renderAhorrosTab();
+  if(tabId==='tab-p-tarjetas')renderPresupTC();
 }
 function switchTCTab(tabId){
   const ids=['tab-tc-nuevo','tab-tc-lista','tab-tc-resumen','tab-tc-concil'];
@@ -3336,6 +3338,65 @@ function renderRegalos(){
     <td class="text-right">${fmt(r.presupuesto)}</td>
     <td><span class="badge ${r.comprado?'badge-green':'badge-orange'}">${r.comprado?'✅ Comprado':'⏳ Pendiente'}</span></td></tr>
   `).join('');
+}
+
+function renderPresupTC(){
+  const MONTHS_SHORT=MONTHS.map(m=>m.slice(0,3));
+  // Build per-bank per-month totals
+  const bancos=[...new Set(consumos.map(c=>c.banco))].sort();
+  const cols=MONTHS.map((_,i)=>i);
+  const tc=parseFloat(document.getElementById('tc-global')?.value)||1;
+
+  function montoARS(c){
+    return (c.moneda==='USD')?parseFloat(c.monto||0)*tc:parseFloat(c.monto||0);
+  }
+  function getTCForBancoMes(banco,m){
+    return consumos.filter(c=>{
+      if(c.banco!==banco) return false;
+      const pm=parseInt(c.primerMes)||0;
+      const e=pm+(parseInt(c.cuotas)||1)-1;
+      return m>=pm&&m<=e;
+    }).reduce((s,c)=>s+montoARS(c),0);
+  }
+
+  const colHdrs=cols.map(i=>`<th style="text-align:right;padding:.5rem .75rem;font-size:.75rem;color:var(--text3);background:var(--surface2);white-space:nowrap${i===currentMonth?';background:var(--accent2);color:var(--accent)':''}">${MONTHS_SHORT[i]}</th>`).join('');
+
+  let rows='';
+  let colTots=new Array(12).fill(0);
+  bancos.forEach((banco,idx)=>{
+    const bg=idx%2===0?'var(--surface)':'var(--surface2)';
+    const cells=cols.map(i=>{
+      const v=getTCForBancoMes(banco,i);
+      colTots[i]+=v;
+      const isAct=i===currentMonth;
+      return`<td style="text-align:right;padding:.5rem .75rem;color:${v>0?'var(--warn)':'var(--text3)'};background:${isAct?'var(--active-col, #E8E4FF)':bg}">${v>0?fmt(v):'—'}</td>`;
+    }).join('');
+    rows+=`<tr>
+      <td style="padding:.5rem 1rem;font-weight:500;background:${bg};white-space:nowrap;min-width:160px">${banco}</td>
+      ${cells}
+      <td style="text-align:right;padding:.5rem .75rem;font-weight:600;color:var(--warn);background:var(--surface2)">${fmt(cols.reduce((s,i)=>s+getTCForBancoMes(banco,i),0))}</td>
+    </tr>`;
+  });
+
+  const totCells=cols.map(i=>{
+    const isAct=i===currentMonth;
+    return`<td style="text-align:right;padding:.625rem .75rem;font-weight:600;color:var(--warn);background:${isAct?'var(--accent2)':'var(--accent2)'};">${fmt(colTots[i])}</td>`;
+  }).join('');
+  const grandTotal=colTots.reduce((s,v)=>s+v,0);
+
+  document.getElementById('presup-tc-table').innerHTML=`
+    <thead><tr>
+      <th style="text-align:left;padding:.5rem 1rem;font-size:.75rem;color:var(--text3);background:var(--surface2);min-width:160px">TARJETA</th>
+      ${colHdrs}
+      <th style="text-align:right;padding:.5rem .75rem;font-size:.75rem;color:var(--text3);background:var(--surface2)">TOTAL</th>
+    </tr></thead>
+    <tbody>${rows||'<tr><td colspan="14" style="padding:2rem;text-align:center;color:var(--text3)">Sin consumos cargados todavía</td></tr>'}</tbody>
+    <tfoot><tr style="background:var(--accent2)">
+      <td style="padding:.625rem 1rem;font-weight:600;color:var(--accent)">TOTAL</td>
+      ${totCells}
+      <td style="text-align:right;padding:.625rem .75rem;font-weight:700;color:var(--accent)">${fmt(grandTotal)}</td>
+    </tr></tfoot>
+  `;
 }
 
 // ================================================
@@ -5755,4 +5816,17 @@ checkAuth();
 
   
 
+
+  <div id="tab-p-tarjetas" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">💳 Tarjetas de crédito — cuotas por mes</span>
+        <span style="font-size:.78rem;color:var(--text3)">Se alimenta automáticamente de tus consumos cargados en Tarjetas</span>
+      </div>
+      <!-- Month headers -->
+      <div style="overflow-x:auto">
+        <table id="presup-tc-table" style="width:100%;border-collapse:collapse;font-size:.85rem"></table>
+      </div>
+    </div>
+  </div>
 
