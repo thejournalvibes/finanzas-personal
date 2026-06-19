@@ -5013,8 +5013,9 @@ function saveEmaFavor(){
 }
 function deleteEmaFavor(id){emaFavor=emaFavor.filter(f=>f.id!==id);sd('emaFavor',emaFavor);renderEma();toast('🗑️ Eliminado');}
 function renderEmaFavor(){
-  const total=emaFavor.reduce((s,f)=>s+parseFloat(f.monto||0),0);
-  document.getElementById('ema-favor-tbody').innerHTML=emaFavor.map(f=>`
+  const items=emaFavor.filter(f=>f.mes===currentMonth);
+  const total=items.reduce((s,f)=>s+parseFloat(f.monto||0),0);
+  document.getElementById('ema-favor-tbody').innerHTML=items.map(f=>`
     <tr>
       <td class="fw-500">${f.concepto}</td>
       <td style="font-size:.82rem;color:var(--text2)">${MONTHS[f.mes]}</td>
