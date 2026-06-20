@@ -2151,7 +2151,16 @@ function renderPage(id){
   if(id==='ctas3ros')renderC3();
   if(id==='flujo')renderFlujo();
   if(id==='resumen')renderResumen();
-  if(id==='presupuesto'){renderOverview();}
+  if(id==='presupuesto'){
+    const activeSub=document.querySelector('#page-presupuesto .tab-content.active');
+    switch(activeSub?activeSub.id:'tab-p-overview'){
+      case 'tab-p-ing': renderIngresos(); break;
+      case 'tab-p-gas': renderGastosPresup(); break;
+      case 'tab-p-ahorros': renderAhorrosTab(); break;
+      case 'tab-p-tarjetas': renderPresupTC(); break;
+      default: renderOverview();
+    }
+  }
   if(id==='obligaciones')renderObligaciones();
   if(id==='tarjetas'){rebuildAllSelects();switchTCTab('tab-tc-lista');}
   if(id==='graficos')renderGraficos();
