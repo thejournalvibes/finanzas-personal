@@ -611,6 +611,18 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
           <button class="btn btn-ghost btn-sm" onclick="closeIngForm()">Cancelar</button>
           <span id="ing-edit-id" style="display:none"></span>
         </div>
+        <div style="padding:.75rem 1.5rem;background:var(--surface2);border-top:1px solid var(--border);display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.875rem">
+            <input type="checkbox" id="ing-repetir" style="accent-color:var(--accent);width:16px;height:16px" onchange="toggleRepetirIng()">
+            <span>🔁 Repetir todos los meses</span>
+          </label>
+          <div id="ing-repetir-opts" style="display:none;align-items:center;gap:.75rem">
+            <label style="font-size:.82rem;color:var(--text2)">% aumento mensual:</label>
+            <input type="number" id="ing-pct-aumento" value="0" min="0" max="100" step="0.1"
+              style="width:80px;padding:.35rem .5rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.875rem">
+            <span style="font-size:.78rem;color:var(--text3)">0% = mismo monto todos los meses</span>
+          </div>
+        </div>
       </div>
       <table>
         <thead><tr><th>Concepto</th><th>Fecha</th><th>Tipo</th><th>Categoría</th><th class="text-right">Monto</th><th style="width:80px"></th></tr></thead>
@@ -1043,7 +1055,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <span class="card-title">Todos los consumos</span>
         <div style="display:flex;align-items:center;gap:.6rem">
           <span class="card-count" id="tc-count-badge">0</span>
-          <button class="btn btn-ghost btn-sm" onclick="exportTCExcel()">⬇️ Descargar Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportTCExcel()" title="Exporta las cuotas que vencen en el mes elegido en 'Vista del mes'">⬇️ Descargar Excel del mes</button>
         </div>
       </div>
       <!-- FILTER BAR -->
@@ -2074,7 +2086,15 @@ function getTCMonth(m){return consumos.reduce((s,c)=>{const e=c.primerMes+c.cuot
 function getTCMonthByBanco(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.banco]=(map[c.banco]||0)+toARS(c.monto,c.moneda);});return map;}
 function getTCMonthByCat(m){const map={};consumos.forEach(c=>{const e=c.primerMes+c.cuotas-1;if(m>=c.primerMes&&m<=e)map[c.categoria]=(map[c.categoria]||0)+toARS(c.monto,c.moneda);});return map;}
 // NEW: ingresos/gastos filtered by month via fecha field
-function getIngMonth(m){return ingresos.filter(i=>dateToMonth(i.fecha)===m).reduce((s,i)=>s+parseFloat(i.monto||0),0);}
+function getIngresoMontoEnMes(i,m){
+  const pm=dateToMonth(i.fecha);
+  if(!i.repetir) return pm===m?parseFloat(i.monto||0):0;
+  if(m<pm) return 0;
+  const offset=m-pm;
+  const pct=(parseFloat(i.pctAumento)||0)/100;
+  return parseFloat(i.monto||0)*Math.pow(1+pct,offset);
+}
+function getIngMonth(m){return ingresos.reduce((s,i)=>s+getIngresoMontoEnMes(i,m),0)+getEmaTotalMes(m);}
 // Exclude TC-linked rows from manual gastos total (they're already counted in getTCMonth)
 function getGasMonth(m){
   return gastos.filter(g=>!g._tcBanco).reduce((s,g)=>s+getGastoMontoEnMes(g,m),0);
@@ -2397,6 +2417,12 @@ function tipoChip(tipo){
 // ================================================
 // INGRESOS — with date, edit
 // ================================================
+function toggleRepetirIng(){
+  const cb=document.getElementById('ing-repetir');
+  const opts=document.getElementById('ing-repetir-opts');
+  if(!cb||!opts)return;
+  opts.style.display=cb.checked?'flex':'none';
+}
 function openIngForm(editId){
   const f=document.getElementById('ing-form');
   f.style.display='block';
@@ -2410,12 +2436,18 @@ function openIngForm(editId){
     document.getElementById('ing-cat').value=item.categoria;
     document.getElementById('ing-monto').value=item.monto;
     document.getElementById('ing-edit-id').textContent=editId;
+    document.getElementById('ing-repetir').checked=!!item.repetir;
+    document.getElementById('ing-pct-aumento').value=item.pctAumento||0;
+    toggleRepetirIng();
   } else {
     document.getElementById('ing-concepto').value='';
     document.getElementById('ing-fecha').valueAsDate=new Date();
     document.getElementById('ing-tipo').value='Fijo';
     document.getElementById('ing-monto').value='';
     document.getElementById('ing-edit-id').textContent='';
+    document.getElementById('ing-repetir').checked=false;
+    document.getElementById('ing-pct-aumento').value=0;
+    toggleRepetirIng();
   }
   f.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -2426,15 +2458,17 @@ function saveIngreso(){
   const tipo=document.getElementById('ing-tipo').value;
   const categoria=document.getElementById('ing-cat').value;
   const monto=parseFloat(document.getElementById('ing-monto').value)||0;
+  const repetir=document.getElementById('ing-repetir').checked;
+  const pctAumento=parseFloat(document.getElementById('ing-pct-aumento').value)||0;
   if(!concepto){toast('⚠️ Escribí un concepto');return;}
   if(!fecha){toast('⚠️ Seleccioná una fecha');return;}
   const editId=document.getElementById('ing-edit-id').textContent;
   if(editId){
     const idx=ingresos.findIndex(i=>i.id==editId);
-    if(idx>=0)ingresos[idx]={...ingresos[idx],concepto,fecha,tipo,categoria,monto};
+    if(idx>=0)ingresos[idx]={...ingresos[idx],concepto,fecha,tipo,categoria,monto,repetir,pctAumento};
     toast('✅ Ingreso actualizado');
   } else {
-    ingresos.push({id:genId(),concepto,fecha,tipo,categoria,monto});
+    ingresos.push({id:genId(),concepto,fecha,tipo,categoria,monto,repetir,pctAumento});
     toast('✅ Ingreso agregado');
   }
   sd('ingresos',ingresos);
@@ -2447,21 +2481,35 @@ function renderIngresos(){
   document.getElementById('ing-mes-title').textContent=MONTHS[m]+' 2026';
   document.getElementById('ing-mes-total-label').textContent=MONTHS[m]+' 2026';
   fillSelect('ing-cat',catIngresos);
-  // Show only ingresos for the active month
-  const sorted=ingresos.filter(i=>dateToMonth(i.fecha)===m).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  document.getElementById('ing-tbody').innerHTML=sorted.length?sorted.map(i=>{
+  // Show ingresos for the active month: los del mes + los repetidos que ya arrancaron
+  const filtered=ingresos.filter(i=>{
+    if(i.repetir) return dateToMonth(i.fecha)<=m;
+    return dateToMonth(i.fecha)===m;
+  });
+  const sorted=[...filtered].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const emaTotal=getEmaTotalMes(m);
+  const emaRow=`<tr style="background:var(--accent2)">
+      <td class="fw-500">👫 Ema — total a cobrar</td>
+      <td class="text-muted" style="font-size:.8rem">Automático</td>
+      <td>${tipoChip('Fijo')}</td>
+      <td>${catChip('Ema')}</td>
+      <td class="text-right fw-500" style="color:var(--success)">${fmt(emaTotal)}</td>
+      <td style="text-align:center"><span style="font-size:.78rem;color:var(--text3)" title="Se calcula solo desde la pestaña Ema, no se edita ni borra acá">🔒</span></td>
+    </tr>`;
+  document.getElementById('ing-tbody').innerHTML=emaRow+(sorted.length?sorted.map(i=>{
+    const repNote=i.repetir?`<span style="font-size:.68rem;color:var(--accent);display:block;margin-top:.15rem">🔁 repite${parseFloat(i.pctAumento)>0?' · +'+i.pctAumento+'%/mes':''}</span>`:'';
     return`<tr>
-      <td class="fw-500">${i.concepto}</td>
+      <td class="fw-500">${i.concepto}${repNote}</td>
       <td class="text-muted" style="font-size:.8rem">${i.fecha?new Date(i.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'-'}</td>
       <td>${tipoChip(i.tipo)}</td>
       <td>${catChip(i.categoria)}</td>
-      <td class="text-right">${fmt(i.monto)}</td>
+      <td class="text-right">${fmt(getIngresoMontoEnMes(i,m))}</td>
       <td><div class="row-actions">
         <button class="edit-btn" onclick="openIngForm('${i.id}')" title="Editar">✏️</button>
         <button class="del-btn" onclick="deleteIngreso('${i.id}')" title="Eliminar">✕</button>
       </div></td>
     </tr>`;
-  }).join(''):'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Sin ingresos en '+MONTHS[m]+'. Agregá uno con el botón de arriba.</td></tr>';
+  }).join(''):'');
   document.getElementById('ing-total').textContent=fmt(getIngMonth(m));
 }
 
@@ -3215,18 +3263,19 @@ function getFilteredConsumos(){
   const banco=document.getElementById('f-banco')?.value||'';
   const centro=document.getElementById('f-centro')?.value||'';
   const cat=document.getElementById('f-cat')?.value||'';
-  const mesFilter=document.getElementById('f-mes')?.value;
+  const desdeFilter=document.getElementById('f-desde')?.value;
+  const hastaFilter=document.getElementById('f-hasta')?.value;
   const desc=(document.getElementById('f-desc')?.value||'').toLowerCase().trim();
-  const mesInt=mesFilter!==''&&mesFilter!==undefined?parseInt(mesFilter):null;
+  const desdeInt=desdeFilter!==''&&desdeFilter!==undefined?parseInt(desdeFilter):null;
+  const hastaInt=hastaFilter!==''&&hastaFilter!==undefined?parseInt(hastaFilter):null;
   return consumos.filter(c=>{
     if(banco&&c.banco!==banco)return false;
     if(centro&&c.centro!==centro)return false;
     if(cat&&c.categoria!==cat)return false;
-    if(mesInt!==null){
-      const pm=parseInt(c.primerMes)||0;
-      const lastMes=pm+(parseInt(c.cuotas)||1)-1;
-      if(mesInt<pm||mesInt>lastMes)return false;
-    }
+    const pm=parseInt(c.primerMes)||0;
+    const lastMes=pm+(parseInt(c.cuotas)||1)-1;
+    if(desdeInt!==null&&lastMes<desdeInt)return false;
+    if(hastaInt!==null&&pm>hastaInt)return false;
     if(desc&&!(c.desc||'').toLowerCase().includes(desc)&&!(c.categoria||'').toLowerCase().includes(desc))return false;
     return true;
   });
@@ -3235,33 +3284,43 @@ function getFilteredConsumos(){
 function exportTCExcel(){
   if(typeof XLSX==='undefined'){toast('⚠️ La librería de Excel no está cargada');return;}
   const filterExists=!!document.getElementById('f-banco');
-  const list=filterExists?getFilteredConsumos():consumos;
-  if(!list.length){toast('⚠️ No hay consumos para exportar');return;}
-  const tc=getTCGlobal?getTCGlobal():1;
-  const rows=list.map(c=>{
-    const montoARS=(c.moneda==='USD')?parseFloat(c.monto||0)*tc:parseFloat(c.monto||0);
+  const base=filterExists?getFilteredConsumos():consumos;
+  const m=currentMonth;
+  // Solo las cuotas que vencen en el mes seleccionado en "Vista del mes" —
+  // así el total del Excel coincide con el cuadro resumen mensual.
+  const relevant=base.filter(c=>{
+    const pm=parseInt(c.primerMes)||0;
+    const cu=parseInt(c.cuotas)||1;
+    return m>=pm&&m<=pm+cu-1;
+  });
+  if(!relevant.length){toast('⚠️ No hay consumos con cuota en '+MONTHS[m]);return;}
+  const rows=relevant.map(c=>{
+    const pm=parseInt(c.primerMes)||0;
+    const cu=parseInt(c.cuotas)||1;
+    const cuotaN=m-pm+1;
+    const montoARS=toARS(c.monto,c.moneda);
     return {
       'Descripción':c.desc||'',
-      'Fecha':c.fecha||'',
       'Banco/Tarjeta':c.banco||'',
       'Centro de costo':c.centro||'',
       'Categoría':c.categoria||'',
+      'Mes':MONTHS[m],
+      'N° cuota':`${cuotaN} de ${cu}`,
       'Moneda':c.moneda||'ARS',
       'Monto original':parseFloat(c.monto||0),
-      'Monto cuota (ARS)':Math.round(montoARS),
-      'Cuotas':parseInt(c.cuotas)||1,
-      'Primer mes':MONTHS[c.primerMes]||'',
-      'Total comprometido (ARS)':Math.round(montoARS*(parseInt(c.cuotas)||1)),
+      'Monto cuota del mes (ARS)':Math.round(montoARS),
       'Comentario':c.comentario||''
     };
   });
+  const totalMes=relevant.reduce((s,c)=>s+toARS(c.monto,c.moneda),0);
+  rows.push({'Descripción':'TOTAL '+MONTHS[m].toUpperCase(),'Banco/Tarjeta':'','Centro de costo':'','Categoría':'','Mes':'','N° cuota':'','Moneda':'','Monto original':'','Monto cuota del mes (ARS)':Math.round(totalMes),'Comentario':''});
   const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:28},{wch:12},{wch:16},{wch:16},{wch:16},{wch:8},{wch:14},{wch:16},{wch:8},{wch:12},{wch:18},{wch:24}];
+  ws['!cols']=[{wch:28},{wch:16},{wch:16},{wch:18},{wch:10},{wch:10},{wch:8},{wch:14},{wch:20},{wch:24}];
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Consumos TC');
+  XLSX.utils.book_append_sheet(wb,ws,MONTHS[m].slice(0,10));
   const fecha=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`Tarjetas_Consumos_${fecha}.xlsx`);
-  toast('✅ Excel descargado');
+  XLSX.writeFile(wb,`Tarjetas_${MONTHS[m]}_${fecha}.xlsx`);
+  toast('✅ Excel de '+MONTHS[m]+' descargado — total '+fmt(totalMes));
 }
 
 function applyTCFilters(){
@@ -4936,6 +4995,15 @@ function getEmaFavorMes(m){
   return emaFavor.filter(f=>f.mes===m).reduce((s,f)=>s+parseFloat(f.monto||0),0);
 }
 
+// Total que le corresponde pagar a Ema en el mes — usado también como ingreso automático
+// en la pestaña Ingresos (no hace falta cargarlo a mano cada mes).
+function getEmaTotalMes(m){
+  return getEmaServMes(m) - getEmaFavorMes(m)
+    + getTCByCentro('Dividir con Ema',m)*0.5
+    + getTCByCentro('Triccount',m)*0.5
+    + getTCByCentro('Gastos de Ema',m);
+}
+
 function renderEmaResumenTable(){
   const cols=MONTHS.map((_,i)=>i);
   const rows=[
@@ -4946,7 +5014,7 @@ function renderEmaResumenTable(){
     {label:'👛 Gastos de Ema (100%)', fn:m=>getTCByCentro('Gastos de Ema',m), color:'var(--text)'},
   ];
   const colH=cols.map(i=>`<th class="month-col ${i===currentMonth?'ema-active-col':''}">${MONTHS[i].slice(0,3)}</th>`).join('');
-  const totFn=m=>rows.reduce((s,r)=>s+r.fn(m),0);
+  const totFn=m=>getEmaTotalMes(m);
   const rowsHtml=rows.map(r=>{
     const cells=cols.map(i=>`<td class="month-col ${i===currentMonth?'mes-cell-active':''}" style="color:${r.color}">${fmt(r.fn(i))}</td>`).join('');
     const total=cols.reduce((s,i)=>s+r.fn(i),0);
