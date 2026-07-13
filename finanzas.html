@@ -2021,8 +2021,87 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const COLORS=['#7c6fcd','#2d7a4f','#c94040','#b56a1e','#3b82f6','#d946ef','#f59e0b','#10b981','#6366f1','#ec4899','#14b8a6','#f97316'];
 
+
+// ================================================
+// SUPABASE SYNC
+// ================================================
+const SB_URL = 'https://qepkciixlbmeacdiqvux.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlcGtjaWl4bGJtZWFjZGlxdnV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5Njk1NDcsImV4cCI6MjA5OTU0NTU0N30.71nXucYKhnkxUIAimnTOEw2UtbnHnP0DBpqrf9iz6Pw';
+const SB_USER = 'belen'; // single user
+
+async function sbGet(key) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/user_data?user_id=eq.${SB_USER}&key=eq.${key}&select=value`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    const data = await r.json();
+    if (data && data.length > 0) return data[0].value;
+    return null;
+  } catch(e) { return null; }
+}
+
+async function sbSet(key, value) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/user_data`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({ user_id: SB_USER, key, value })
+    });
+  } catch(e) { console.warn('Supabase sync error:', e); }
+}
+
+async function loadAllFromSupabase() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/user_data?user_id=eq.${SB_USER}&select=key,value`, {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+    });
+    const data = await r.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      // No cloud data — upload current localStorage to Supabase
+      console.log('No Supabase data found, uploading localStorage...');
+      await uploadLocalStorageToSupabase();
+      return false;
+    }
+    // Load cloud data into localStorage
+    data.forEach(row => {
+      localStorage.setItem(row.key, JSON.stringify(row.value));
+    });
+    console.log('Loaded', data.length, 'keys from Supabase');
+    return true;
+  } catch(e) {
+    console.warn('Could not load from Supabase, using localStorage:', e);
+    return false;
+  }
+}
+
+async function uploadLocalStorageToSupabase() {
+  const keys = ['consumos','ingresos','gastos','savObjetivos','savPlanificado',
+    'ahorroLines','ahorroPlan','objetivos','deuDeudas','ffBancos','ffMovs',
+    'ffReservas','ffCatPresup','bancos','centros','catTC','catIngresos','catGastos',
+    'emaServicios','emaFavor','c3Personas','obligManual','obligState','obligDisponible',
+    'prestCuotas','regalos','tcGlobal','concilStatus'];
+  for (const key of keys) {
+    const val = localStorage.getItem(key);
+    if (val !== null) {
+      try { await sbSet(key, JSON.parse(val)); } catch(e) {}
+    }
+  }
+  console.log('Uploaded localStorage to Supabase');
+}
+
+// Override sd() to also sync to Supabase
+const _sd_original = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+function sd(k, v) {
+  _sd_original(k, v);
+  sbSet(k, v); // async, don't await
+}
+
 function ld(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
-function sd(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function fmt(n){if(isNaN(n)||n==null)return'$0';return'$'+Math.round(n).toLocaleString('es-AR');}
 function fmtShort(n){if(Math.abs(n)>=1000000)return'$'+(n/1000000).toFixed(1)+'M';if(Math.abs(n)>=1000)return'$'+(n/1000).toFixed(0)+'K';return fmt(n);}
 function genId(){return Date.now()+'_'+Math.random().toString(36).slice(2);}
@@ -5950,5 +6029,32 @@ checkAuth();
 
   
 
+
+function reloadDataStores(){
+  bancos      = ld('bancos',['BBVA Visa','Crédito Mercado Pago','Galicia Visa','Provincia Master','Provincia Visa','Santander Adicional','Santander Visa','Tarjeta Mercado Pago']);
+  centros     = ld('centros',['Personal','Dividir con Ema','Gastos de Ema','Uso tarjeta por otros','Triccount','Casa']);
+  catTC       = ld('catTC',['Comida / Gastos de casa','Suscripciones','Ropa / Peluquería','Salud / Act. Física','Galilea','Bazar & Deco','Cumpleaños / regalos','Emprendimientos','Combustible / Viajes','Comisiones bancarias','Educación','Prestamo','Varios / Otros','Compras de terceros']);
+  catIngresos = ld('catIngresos',['Sueldo','Freelance','Inversión / Rendimientos','Uso de tarjeta por otros','Reservas / rendimientos','Otro']);
+  catGastos   = ld('catGastos',['Tarjetas','Prestamo','Salud / Act. Física','Servicios del hogar','Galilea','Cumpleaños / regalos','Ropa / Peluquería','Emprendimientos','Combustible / Viajes','Comida / Gastos de casa','Cenas / Salidas','Varios / Otros','Ahorro']);
+  ingresos    = ld('ingresos',[]);
+  gastos      = ld('gastos',[]);
+  consumos    = ld('consumos',[]);
+  objetivos   = ld('objetivos',[]);
+  ahorroLines = ld('ahorroLines',[]);
+  ahorroPlan  = ld('ahorroPlan',Array(12).fill(0));
+  regalos     = ld('regalos',[]);
+  savObjetivos= ld('savObjetivos',[]);
+  deuDeudas   = ld('deuDeudas',[]);
+  ffBancos    = ld('ffBancos',[]);
+  ffMovs      = ld('ffMovs',[]);
+  ffReservas  = ld('ffReservas',[]);
+  emaServicios= ld('emaServicios',[]);
+  emaFavor    = ld('emaFavor',[]);
+  obligManual = ld('obligManual',[]);
+  obligState  = ld('obligState',{});
+  obligDisponible = ld('obligDisponible',{});
+  prestCuotas = ld('prestCuotas',[]);
+  c3Personas  = ld('c3Personas',[]);
+}
 
 
